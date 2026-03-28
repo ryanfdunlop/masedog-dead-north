@@ -132,6 +132,17 @@ const MANIFEST = {
   alarm_1: 'sfx/alarm_1.wav',
   alarm_2: 'sfx/alarm_2.wav',
 
+  // Clock ticking — high stakes countdown
+  clock_tick: 'sfx/clock_tick.wav',
+
+  // Scene transitions (Mason's picks)
+  scene_piano: 'transitions/scene_piano.wav',    // "creepy dark piano keys — great!"
+  scene_plucks: 'transitions/scene_plucks.wav',  // pluck scene change
+  scene_reese: 'transitions/scene_reese.wav',    // reese pad scene change
+
+  // Tunnel/underground ambient
+  tunnel_ambient: 'ambient/tunnel_ambient.wav',  // "amazing ambient sounds in a tunnel"
+
   // Action scene music
   action_1: 'music/action_1.wav',
 
@@ -334,6 +345,28 @@ export function sbStartExploration() {
 /** Start hope/victory music */
 export function sbStartHope() {
   return playRandom('hope', { volume: 0.1, loop: true, music: true });
+}
+
+/** Play creepy piano scene transition */
+export function sbScenePiano() {
+  return playSound('scene_piano', { volume: 0.15 });
+}
+
+/** Play scene transition (random: piano, plucks, or reese) */
+export function sbSceneTransition() {
+  const choices = ['scene_piano', 'scene_plucks', 'scene_reese'];
+  const pick = choices[Math.floor(Math.random() * choices.length)];
+  return playSound(pick, { volume: 0.12 });
+}
+
+/** Start clock ticking — for high stakes timed choices */
+export function sbStartClockTick() {
+  return playSound('clock_tick', { volume: 0.2, loop: true });
+}
+
+/** Start tunnel ambient loop */
+export function sbStartTunnel() {
+  return playSound('tunnel_ambient', { volume: 0.06, loop: true, music: true });
 }
 
 /** Play an exotic/unique SFX texture */

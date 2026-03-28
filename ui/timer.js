@@ -69,6 +69,8 @@ export function initTimer() {
  * @param {number} seconds — total countdown time
  * @param {Function} onExpire — called when timer reaches zero
  */
+let clockTickSource = null; // Real clock tick sound
+
 export function startChoiceTimer(seconds, onExpire) {
   if (!timerContainer) initTimer();
 
@@ -76,6 +78,15 @@ export function startChoiceTimer(seconds, onExpire) {
   timerStartTime = performance.now();
   timerCallback = onExpire;
   timerActive = true;
+
+  // Start real clock ticking sound if available
+  try {
+    import('../engine/soundbank.js').then(sb => {
+      if (sb.isLoaded()) {
+        clockTickSource = sb.sbStartClockTick();
+      }
+    }).catch(() => {});
+  } catch(e) {}
 
   // Show the timer
   timerContainer.classList.remove('hidden');
@@ -97,6 +108,12 @@ export function startChoiceTimer(seconds, onExpire) {
 export function stopChoiceTimer() {
   timerActive = false;
   timerCallback = null;
+
+  // Stop the clock ticking sound
+  if (clockTickSource) {
+    try { clockTickSource.stop(); } catch(e) {}
+    clockTickSource = null;
+  }
 
   if (animFrameId) {
     cancelAnimationFrame(animFrameId);

@@ -5,7 +5,7 @@
 // ============================================================
 
 import * as audio from '../engine/audio.js';
-import { sbZombieGroan, sbGhostNoise, sbDarkSFX, sbHit, sbExotic, sbAlarm, sbStartSceneAmbient, isLoaded as sbReady } from '../engine/soundbank.js';
+import { sbZombieGroan, sbGhostNoise, sbDarkSFX, sbHit, sbExotic, sbAlarm, sbSceneTransition, sbStartSceneAmbient, isLoaded as sbReady } from '../engine/soundbank.js';
 
 let sceneCanvas = null;
 let sceneCtx = null;
@@ -43,6 +43,11 @@ export function setScene(sceneId) {
     sceneAmbientSources.forEach(s => { try { s.stop(); } catch(e) {} });
   }
   sceneAmbientSources = null;
+
+  // Play scene transition sound (creepy piano/plucks/reese)
+  if (sbReady()) {
+    sbSceneTransition();
+  }
 
   // Start scene-specific real sound drone + soundscape (if loaded)
   if (sbReady()) {
