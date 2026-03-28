@@ -36,6 +36,7 @@ import { showScreen, updateHUD } from '../ui/screens.js';
 import { typeText, showChoices, clearNarration, showResults } from '../ui/narrator.js';
 import { initTransitions, fadeTransition, damageFlash, screenShake, glitchEffect } from '../ui/transitions.js';
 import { initEffects, setWeatherEffect, applyDayNightTint, setLocationTheme } from '../ui/effects.js';
+import { initScenes, setScene, getSceneForContext } from '../ui/scenes.js';
 import {
   initAudio, resumeAudio, playUIClick, playSuccess, playFailure,
   playZombieGroan, playShotgun, playHeartbeat, playScreamerShriek,
@@ -46,7 +47,7 @@ import { Scavenge } from '../minigames/scavenge.js';
 import { Hunting } from '../minigames/hunting.js';
 import { RiverCrossing } from '../minigames/river-crossing.js';
 import { initDice, rollDice, rollDiceVS, calculateSuccessChance, convertDCtoTarget, getRollCount } from '../ui/dice.js';
-import { getAvailableActions, resolveAction, getActionDiceParams } from './actions.js';
+// Actions are handled by ui/screens.js directly now
 
 // Register all events
 registerEvents(COMBAT_EVENTS);
@@ -83,13 +84,15 @@ let prologuePhase = 'intro';
 export function startNewGame(seed) {
   initTransitions();
   initEffects();
+  initScenes();
   initAudio();
   initDice();
   resumeAudio();
   newGame(seed);
   initStartingParty();
   setLocationTheme('vancouver');
-  startAmbience('tension'); // Start with tense hospital ambience
+  setScene('hospital'); // Hospital scene for prologue
+  startAmbience('tension');
   // Expose player skills for narrator probability display
   window._masedog_player_skills = getState().player.skills;
 
@@ -254,6 +257,7 @@ async function runTurn() {
   setLocationTheme(region);
   setWeatherEffect(getState().weather.current);
   applyDayNightTint(updatedState.calendar.season);
+  setScene(getSceneForContext(region, updatedState.calendar.season, null));
 
   // Update ambient music based on game state
   const mood = getAmbienceForState(getState());
@@ -528,6 +532,7 @@ function applyEffects(effects) {
  * Show camp screen between turns — player can review status and continue.
  */
 function showCampScreen() {
+  setScene('campfire'); // Campfire scene at camp
   showScreen('camp', {
     onContinue: () => runTurn(),
   });

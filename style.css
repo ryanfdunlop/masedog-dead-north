@@ -839,6 +839,17 @@ body {
   transition: opacity 400ms;
 }
 
+.scene-canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  z-index: 5;
+  pointer-events: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  opacity: 0.5;
+}
+
 .effects-canvas {
   position: fixed;
   top: 0; left: 0;
