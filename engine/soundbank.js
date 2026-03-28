@@ -121,6 +121,19 @@ const MANIFEST = {
   combat_loop_2: 'music/combat_loop_2.wav',
   combat_loop_3: 'music/combat_loop_005.wav',
   combat_loop_4: 'music/combat_loop_010.wav',
+
+  // Sorrow/loss music — for game over, character death
+  sorrow_1: 'music/sorrow_1.wav',
+  sorrow_2: 'music/sorrow_2.wav',
+
+  // Exploration music — journey, travel, discovery
+  exploration_1: 'music/exploration_1.wav',
+  exploration_2: 'music/exploration_2.wav',
+  exploration_3: 'music/exploration_3.wav',
+
+  // Hope/victory music — winning, reaching Ottawa, cure found
+  hope_1: 'music/hope_1.wav',
+  hope_2: 'music/hope_2.wav',
 };
 
 /**
@@ -277,6 +290,21 @@ export function sbKick() {
 /** Play a snap (gunshot layer) */
 export function sbSnap() {
   return playRandom('snap', { volume: 0.3 });
+}
+
+/** Start sorrow music (game over, death) */
+export function sbStartSorrow() {
+  return playRandom('sorrow', { volume: 0.1, loop: true, music: true });
+}
+
+/** Start exploration music (traveling, discovery) */
+export function sbStartExploration() {
+  return playRandom('exploration', { volume: 0.08, loop: true, music: true });
+}
+
+/** Start hope/victory music */
+export function sbStartHope() {
+  return playRandom('hope', { volume: 0.1, loop: true, music: true });
 }
 
 /** Play an exotic/unique SFX texture */
