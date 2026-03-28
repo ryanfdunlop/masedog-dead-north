@@ -3,7 +3,7 @@
 // Routes between title, game, camp, gameover, victory screens.
 // ============================================================
 
-import { getState, getLivingParty, getPartySize } from '../engine/state.js';
+import { getState, getLivingParty, getPartySize, dispatch } from '../engine/state.js';
 import { getResourceStatus } from '../engine/resources.js';
 import { getInfectionStatus } from '../engine/infection.js';
 import { getCurrentWaypoint, getNextWaypoint, getProgress } from '../data/locations.js';

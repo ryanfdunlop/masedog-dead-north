@@ -276,6 +276,17 @@ export function setLocationTheme(region) {
     'region-saskatchewan', 'region-manitoba', 'region-ontario-north',
     'region-ontario-south', 'region-ottawa');
 
-  const regionClass = `region-${region.replace('_', '-')}`;
+  // Map region IDs to CSS class names
+  const regionMap = {
+    'vancouver': 'region-vancouver',
+    'bc_interior': 'region-bc-interior',
+    'alberta': 'region-alberta',
+    'saskatchewan': 'region-saskatchewan',
+    'manitoba': 'region-manitoba',
+    'ontario_north': 'region-ontario-north',
+    'ontario_south': 'region-ontario-south',
+    'ottawa_approach': 'region-ottawa',
+  };
+  const regionClass = regionMap[region] || `region-${region.replace(/_/g, '-')}`;
   body.classList.add(regionClass);
 }

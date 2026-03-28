@@ -4,7 +4,7 @@
 // ============================================================
 
 import { getState, getRNG, dispatch } from './state.js';
-import { weightedPick, chance, pick, range, roll } from './random.js';
+import { weightedPick, chance, pick, range, roll, skillCheck } from './random.js';
 
 // Event registries — populated by data files
 const eventPool = [];
@@ -204,7 +204,7 @@ export function resolveChoice(choice) {
   if (choice.skillCheck) {
     const { skill, dc } = choice.skillCheck;
     const modifier = state.player.skills[skill] || 0;
-    const result = require('./random.js').skillCheck(rng, modifier, dc);
+    const result = skillCheck(rng, modifier, dc);
     choice._checkResult = result;
     messages.push(result.success
       ? `[${skill.toUpperCase()} check: ${result.total} vs DC ${dc} — Success!]`

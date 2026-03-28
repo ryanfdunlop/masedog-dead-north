@@ -10,7 +10,7 @@ import {
 import { tickResources, calculateTravel } from './resources.js';
 import { generateWeather, applyWeatherEffects } from './weather.js';
 import { tickInfections } from './infection.js';
-import { selectEvent, registerEvents, resolveChoice, getCurrentRegion } from './events.js';
+import { selectEvent, registerEvents, getCurrentRegion } from './events.js';
 import { resolveCombat } from './combat.js';
 import { autosave } from './save.js';
 import { COMBAT_EVENTS } from '../data/events/encounter-combat.js';
@@ -707,5 +707,23 @@ function trySkillGrowth(characterId, skillName) {
 export function showTitle() {
   showScreen('title', {
     onNewGame: (seed) => startNewGame(seed),
+    onLoad: () => {
+      // Resume a loaded game
+      initTransitions();
+      initEffects();
+      initScenes();
+      initAudio();
+      initDice();
+      resumeAudio();
+      const state = getState();
+      if (state) {
+        window._masedog_player_skills = state.player.skills;
+        const region = getCurrentRegion(state.journey.currentKm);
+        setLocationTheme(region);
+        setScene(getSceneForContext(region, state.calendar.season, null));
+        updateHUD();
+      }
+      showCampScreen();
+    },
   });
 }

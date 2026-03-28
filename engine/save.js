@@ -7,7 +7,7 @@ import { getState, getRNG, newGame, dispatch, initStartingParty, PHASE } from '.
 import { createRNG, fastForward } from './random.js';
 
 const SAVE_PREFIX = 'masedog_save_';
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 2;
 const MAX_SLOTS = 3;
 
 /**
@@ -175,8 +175,24 @@ export function autosave() {
  * Migrate old save formats to current version.
  */
 function migrateSave(saveData) {
-  // Future migrations go here:
-  // if (saveData.version === 1) { ... migrate to v2 ... }
+  if (saveData.version < 2) {
+    // Add downed/skillXP fields to all characters
+    const gs = saveData.gameState;
+    const ensureFields = (char) => {
+      if (!char) return;
+      if (char.downed === undefined) char.downed = false;
+      if (char.downedCount === undefined) char.downedCount = 0;
+      if (!char.skillXP) {
+        char.skillXP = {
+          combat: 0, athletics: 0, perception: 0, medical: 0,
+          mechanics: 0, charisma: 0, stealth: 0, survival: 0,
+        };
+      }
+    };
+    if (gs.player) ensureFields(gs.player);
+    if (gs.party) gs.party.forEach(ensureFields);
+    if (!gs.meta.turnsSinceCombat) gs.meta.turnsSinceCombat = 0;
+  }
   saveData.version = SAVE_VERSION;
 }
 

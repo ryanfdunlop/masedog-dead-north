@@ -77,6 +77,7 @@ export function newGame(seed) {
       gameOver: false,
       gameOverReason: null,
       victory: false,
+      turnsSinceCombat: 0,
     },
 
     player: createCharacter('masedog', 'MASEDOG', 20, {
@@ -237,22 +238,17 @@ export function dispatch(action, payload) {
     case 'UPDATE_PLAYER_HEALTH':
       gameState.player.health = Math.max(0, Math.min(100, gameState.player.health + payload));
       if (gameState.player.health <= 0) {
-        // DOWNED system — don't die immediately
-        if (gameState.player.downed) {
-          // Downed twice = game over
-          gameState.player.downedCount++;
-          if (gameState.player.downedCount >= 2) {
-            gameState.player.isAlive = false;
-            gameState.meta.gameOver = true;
-            gameState.meta.gameOverReason = 'MASEDOG couldn\'t get back up. The Dead North claims another soul.';
-          } else {
-            gameState.player.health = 1;
-          }
+        // DOWNED system — track total times downed, game over on 3rd
+        gameState.player.downedCount++;
+        if (gameState.player.downedCount >= 3) {
+          // Third time down = death
+          gameState.player.isAlive = false;
+          gameState.meta.gameOver = true;
+          gameState.meta.gameOverReason = 'MASEDOG couldn\'t get back up. The Dead North claims another soul.';
         } else {
-          // First time downed — survive at 1 HP
+          // Survive at 1 HP but downed
           gameState.player.health = 1;
           gameState.player.downed = true;
-          gameState.player.downedCount++;
           gameState.player.morale = Math.max(0, gameState.player.morale - 20);
         }
       }
