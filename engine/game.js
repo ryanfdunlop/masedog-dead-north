@@ -48,7 +48,7 @@ import { Scavenge } from '../minigames/scavenge.js';
 import { Hunting } from '../minigames/hunting.js';
 import { RiverCrossing } from '../minigames/river-crossing.js';
 import { initDice, rollDice, rollDiceVS, calculateSuccessChance, convertDCtoTarget, getRollCount } from '../ui/dice.js';
-import { initSoundbank, loadSounds, sbZombieGroan, sbHit, sbRiser, sbWhoosh, sbGhostNoise, sbStartDrone, sbStartSoundscape, isLoaded } from './soundbank.js';
+import { initSoundbank, loadSounds, sbZombieGroan, sbHit, sbRiser, sbWhoosh, sbGhostNoise, sbStartDrone, sbStartSoundscape, sbStartDarkBG, sbAlarm, sbStartAction, sbStartSorrow, sbStartExploration, sbStartHope, isLoaded } from './soundbank.js';
 // Actions are handled by ui/screens.js directly now
 
 // Register all events
@@ -99,7 +99,7 @@ export function startNewGame(seed) {
     loadSounds().then(() => {
       if (isLoaded()) {
         console.log('Real sounds loaded — upgrading audio');
-        sbStartDrone('drone_1'); // Start ambient drone
+        sbStartDarkBG('dark_bg_1'); // Mason's pick — amazing dark background loop
       }
     });
   } catch(e) {}

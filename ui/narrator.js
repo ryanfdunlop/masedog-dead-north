@@ -7,7 +7,7 @@ import { calculateSuccessChance, convertDCtoTarget, getRollCount } from './dice.
 import { isTimerEnabled, getTimerDuration, getSettings } from '../engine/settings.js';
 import { startChoiceTimer, stopChoiceTimer } from './timer.js';
 import * as audio from '../engine/audio.js';
-import { sbZombieGroan, sbHit, sbBassImpact, sbGhostNoise, sbRiser, sbWhoosh, sbClick, sbDarkSFX, sbSnap, isLoaded } from '../engine/soundbank.js';
+import { sbZombieGroan, sbHit, sbBassImpact, sbGhostNoise, sbRiser, sbWhoosh, sbClick, sbDarkSFX, sbSnap, sbAlarm, isLoaded } from '../engine/soundbank.js';
 
 let typeTickCounter = 0; // Only play tick every Nth character
 
@@ -62,6 +62,9 @@ const NARRATION_SOUNDS = [
   }},
   { words: ['eerie', 'presence', 'watching', 'eyes'], fn: () => {
     if (isLoaded()) sbGhostNoise();
+  }},
+  { words: ['alarm', 'siren', 'alert', 'emergency broadcast', 'NOT A DRILL'], fn: () => {
+    if (isLoaded()) sbAlarm(); else audio.playHeartMonitor(true);
   }},
   { words: ['horde', 'swarm', 'dozens', 'hundreds'], fn: () => {
     if (isLoaded()) { sbZombieGroan(); setTimeout(sbZombieGroan, 300); setTimeout(sbZombieGroan, 600); }

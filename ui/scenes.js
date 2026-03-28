@@ -5,7 +5,7 @@
 // ============================================================
 
 import * as audio from '../engine/audio.js';
-import { sbZombieGroan, sbGhostNoise, sbDarkSFX, sbHit, sbExotic, sbStartSceneAmbient, isLoaded as sbReady } from '../engine/soundbank.js';
+import { sbZombieGroan, sbGhostNoise, sbDarkSFX, sbHit, sbExotic, sbAlarm, sbStartSceneAmbient, isLoaded as sbReady } from '../engine/soundbank.js';
 
 let sceneCanvas = null;
 let sceneCtx = null;

@@ -122,6 +122,19 @@ const MANIFEST = {
   combat_loop_3: 'music/combat_loop_005.wav',
   combat_loop_4: 'music/combat_loop_010.wav',
 
+  // Dark background ambient — LOOP THESE (Mason's picks)
+  dark_bg_1: 'ambient/dark_bg_1.wav',  // "amazing dark background noise" — primary loop
+  dark_bg_2: 'ambient/dark_bg_2.wav',  // DeLorean reese pad
+  dark_bg_3: 'ambient/dark_bg_3.wav',  // Faster reese pad 01
+  dark_bg_4: 'ambient/dark_bg_4.wav',  // Faster reese pad 02
+
+  // Alarm sounds — hospital, emergency, danger
+  alarm_1: 'sfx/alarm_1.wav',
+  alarm_2: 'sfx/alarm_2.wav',
+
+  // Action scene music
+  action_1: 'music/action_1.wav',
+
   // Sorrow/loss music — for game over, character death
   sorrow_1: 'music/sorrow_1.wav',
   sorrow_2: 'music/sorrow_2.wav',
@@ -290,6 +303,22 @@ export function sbKick() {
 /** Play a snap (gunshot layer) */
 export function sbSnap() {
   return playRandom('snap', { volume: 0.3 });
+}
+
+/** Start the dark background loop — Mason's favorite, plays a lot */
+export function sbStartDarkBG(variant = null) {
+  const name = variant || ['dark_bg_1', 'dark_bg_2', 'dark_bg_3', 'dark_bg_4'][Math.floor(Math.random() * 4)];
+  return playSound(name, { volume: 0.08, loop: true, music: true });
+}
+
+/** Play alarm sound (hospital, emergency) */
+export function sbAlarm() {
+  return playRandom('alarm', { volume: 0.2 });
+}
+
+/** Start action music */
+export function sbStartAction() {
+  return playSound('action_1', { volume: 0.1, loop: true, music: true });
 }
 
 /** Start sorrow music (game over, death) */
