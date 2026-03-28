@@ -6,9 +6,51 @@
 import { calculateSuccessChance, convertDCtoTarget, getRollCount } from './dice.js';
 import { isTimerEnabled, getTimerDuration, getSettings } from '../engine/settings.js';
 import { startChoiceTimer, stopChoiceTimer } from './timer.js';
-import { playTypeTick } from '../engine/audio.js';
+import * as audio from '../engine/audio.js';
 
 let typeTickCounter = 0; // Only play tick every Nth character
+
+// Sound triggers — when a line contains these words, play the sound
+const NARRATION_SOUNDS = [
+  { words: ['screaming', 'screams', 'scream', 'shrieks', 'shriek'], fn: () => audio.playScreamerShriek() },
+  { words: ['footsteps', 'running', 'sprint', 'runs', 'run!'], fn: () => { audio.playFootstep('concrete'); setTimeout(() => audio.playFootstep('concrete'), 200); setTimeout(() => audio.playFootstep('concrete'), 400); } },
+  { words: ['crash', 'crashes', 'slams', 'slam', 'smash', 'smashes', 'hits the door', 'pounding'], fn: () => audio.playSlam() },
+  { words: ['silence', 'quiet', 'still'], fn: () => {} }, // Intentional silence — stop other sounds
+  { words: ['scratching', 'scratch'], fn: () => audio.playDoorCreak() },
+  { words: ['gunshot', 'shoots', 'fires', 'shot', 'rifle', 'shotgun'], fn: () => audio.playShotgun() },
+  { words: ['pistol', 'handgun'], fn: () => audio.playPistol() },
+  { words: ['groan', 'groaning', 'groans', 'moaning', 'moan'], fn: () => audio.playZombieGroan() },
+  { words: ['biting', 'bitten', 'bite', 'bit'], fn: () => { audio.playZombieGroan(); audio.playSlam(); } },
+  { words: ['door opens', 'door creaks', 'creaks open', 'creaking'], fn: () => audio.playDoorCreak() },
+  { words: ['glass', 'window breaks', 'window shatters', 'shattered'], fn: () => audio.playGlassBreak() },
+  { words: ['thunder', 'lightning'], fn: () => audio.playThunder() },
+  { words: ['wind', 'howling', 'blizzard', 'gust'], fn: () => audio.playWindGust() },
+  { words: ['fire', 'burning', 'flames', 'campfire'], fn: () => audio.playFireCrackle() },
+  { words: ['beeping', 'monitors', 'monitor', 'heart rate'], fn: () => audio.playHeartMonitor(false) },
+  { words: ['flatline', 'flatlines', 'flat line'], fn: () => audio.playHeartMonitor(true) },
+  { words: ['crickets', 'chirping'], fn: () => audio.playCrickets() },
+  { words: ['owl', 'hooting'], fn: () => audio.playOwlHoot() },
+  { words: ['rain', 'raining', 'downpour'], fn: () => audio.playRainLoop() },
+  { words: ['dice', 'rolling'], fn: () => audio.playDiceRoll() },
+  { words: ['helicopter', 'chopper', 'rotors'], fn: () => audio.playWindGust() },
+  { words: ['explosion', 'explodes', 'detonates', 'blast'], fn: () => { audio.playShotgun(); audio.playThunder(); } },
+];
+
+let lastTriggeredLine = ''; // Prevent double-triggering same line
+
+function checkNarrationSounds(lineText) {
+  if (!lineText || lineText === lastTriggeredLine) return;
+  lastTriggeredLine = lineText;
+  const lower = lineText.toLowerCase();
+  for (const trigger of NARRATION_SOUNDS) {
+    for (const word of trigger.words) {
+      if (lower.includes(word)) {
+        try { trigger.fn(); } catch(e) {}
+        return; // Only trigger one sound per line
+      }
+    }
+  }
+}
 
 const CHAR_DELAY = 25;  // ms per character for typewriter
 const LINE_DELAY = 200; // ms pause between lines
@@ -63,6 +105,8 @@ export function typeText(text) {
             span.className = 'narration-line';
             span.textContent = line;
             p.appendChild(span);
+            // Trigger sound for the last significant line when skipping
+            checkNarrationSounds(line);
           }
         }
         cleanup();
@@ -93,10 +137,12 @@ export function typeText(text) {
         // Play tick sound every 3rd character if text sound is enabled
         typeTickCounter++;
         if (typeTickCounter % 3 === 0 && getSettings().textSound) {
-          try { playTypeTick(); } catch(e) {}
+          try { audio.playTypeTick(); } catch(e) {}
         }
         setTimeout(tick, CHAR_DELAY);
       } else {
+        // Line finished — check for sound triggers
+        checkNarrationSounds(lines[lineIndex]);
         currentLine = null;
         lineIndex++;
         setTimeout(tick, LINE_DELAY);
