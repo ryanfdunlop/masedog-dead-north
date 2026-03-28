@@ -36,6 +36,11 @@ import { showScreen, updateHUD } from '../ui/screens.js';
 import { typeText, showChoices, clearNarration, showResults } from '../ui/narrator.js';
 import { initTransitions, fadeTransition, damageFlash, screenShake, glitchEffect } from '../ui/transitions.js';
 import { initEffects, setWeatherEffect, applyDayNightTint, setLocationTheme } from '../ui/effects.js';
+import {
+  initAudio, resumeAudio, playUIClick, playSuccess, playFailure,
+  playZombieGroan, playShotgun, playHeartbeat, playScreamerShriek,
+  startAmbience, crossfadeAmbience, getAmbienceForState, stopAmbience,
+} from './audio.js';
 import { ZombieEscape } from '../minigames/zombie-escape.js';
 import { Scavenge } from '../minigames/scavenge.js';
 import { Hunting } from '../minigames/hunting.js';
@@ -76,9 +81,12 @@ let prologuePhase = 'intro';
 export function startNewGame(seed) {
   initTransitions();
   initEffects();
+  initAudio();
+  resumeAudio();
   newGame(seed);
   initStartingParty();
   setLocationTheme('vancouver');
+  startAmbience('tension'); // Start with tense hospital ambience
   dispatch('SET_PHASE', PHASE.PROLOGUE);
   prologuePhase = 'intro';
   fadeTransition(600).then(() => runPrologue());
@@ -241,6 +249,13 @@ async function runTurn() {
   setWeatherEffect(getState().weather.current);
   applyDayNightTint(updatedState.calendar.season);
 
+  // Update ambient music based on game state
+  const mood = getAmbienceForState(getState());
+  crossfadeAmbience(mood);
+
+  // Low health heartbeat
+  if (getState().player.health < 25) playHeartbeat();
+
   // Weather effects
   const weatherMsgs = applyWeatherEffects();
   messages.push(...weatherMsgs);
@@ -320,6 +335,7 @@ async function runEvent(event) {
 
   dispatch('SET_PHASE', PHASE.CHOICE);
   showChoices(choices, async (choice) => {
+    playUIClick();
     dispatch('SET_PHASE', PHASE.RESOLUTION);
     const messages = [];
 
@@ -341,6 +357,7 @@ async function runEvent(event) {
       }
 
       if (result.success || result.critSuccess) {
+        playSuccess();
         if (choice.successText) messages.push(choice.successText);
         if (choice.successEffects) applyEffects(choice.successEffects);
 
@@ -354,6 +371,7 @@ async function runEvent(event) {
           messages.push(...combatResult.messages);
         }
       } else {
+        playFailure();
         if (choice.failureText) messages.push(choice.failureText);
         if (choice.failureEffects) applyEffects(choice.failureEffects);
 
@@ -365,7 +383,10 @@ async function runEvent(event) {
       }
     } else if (choice.combat) {
       // Direct combat (no skill check)
+      crossfadeAmbience('combat');
       screenShake(6, 400);
+      playShotgun();
+      playZombieGroan();
       const combatResult = resolveCombat(choice.combat);
       messages.push(...combatResult.messages);
       if (choice.successText && combatResult.outcome === 'victory') {
@@ -479,6 +500,7 @@ function showCampScreen() {
  * Show game over screen.
  */
 function showGameOverScreen() {
+  crossfadeAmbience('sorrow');
   const state = getState();
   showScreen('gameover', {
     reason: state.meta.gameOverReason,
@@ -563,6 +585,7 @@ function determineEnding() {
  * Show victory screen.
  */
 function showVictoryScreen() {
+  crossfadeAmbience('hope');
   const state = getState();
   const cureCarrier = state.party.find(c => c.isCureCarrier);
   const cureAlive = cureCarrier ? cureCarrier.isAlive : false;
