@@ -45,7 +45,7 @@ import { ZombieEscape } from '../minigames/zombie-escape.js';
 import { Scavenge } from '../minigames/scavenge.js';
 import { Hunting } from '../minigames/hunting.js';
 import { RiverCrossing } from '../minigames/river-crossing.js';
-import { initDice, rollDice, calculateSuccessChance, convertDCtoTarget, getRollCount } from '../ui/dice.js';
+import { initDice, rollDice, rollDiceVS, calculateSuccessChance, convertDCtoTarget, getRollCount } from '../ui/dice.js';
 import { getAvailableActions, resolveAction, getActionDiceParams } from './actions.js';
 
 // Register all events
@@ -395,17 +395,41 @@ async function runEvent(event) {
         }
       }
     } else if (choice.combat) {
-      // Direct combat (no skill check)
+      // Direct combat — VS DICE! White (player) vs Red (zombie)
       crossfadeAmbience('combat');
+      const state = getState();
+      const playerCombat = state.player.skills.combat || 3;
+      const zombieType = choice.combat.zombieType || 'shambler';
+      const zombiePower = { shambler: 2, runner: 4, crawler: 3, screamer: 3, bloater: 4, stalker: 6, hive_node: 7, wired: 8 }[zombieType] || 3;
+
+      const vsResult = await rollDiceVS({
+        label: `BATTLE vs ${zombieType.toUpperCase()}`,
+        playerBonus: playerCombat,
+        enemyBonusVal: zombiePower,
+        enemyName: zombieType.toUpperCase(),
+      });
+
       screenShake(6, 400);
-      playShotgun();
-      playZombieGroan();
-      const combatResult = resolveCombat(choice.combat);
-      messages.push(...combatResult.messages);
-      if (choice.successText && combatResult.outcome === 'victory') {
-        messages.push(choice.successText);
+      if (vsResult.success) {
+        playSuccess();
+        playShotgun();
+        messages.push(`You rolled ${vsResult.playerTotal} + ${playerCombat} = ${vsResult.total}. The ${zombieType} rolled ${vsResult.enemyTotal} + ${zombiePower} = ${vsResult.enemyTotal + zombiePower}.`);
+        messages.push('You won the fight!');
+        if (choice.successText) messages.push(choice.successText);
+        // Award skill XP for combat
+        dispatch('ADD_SKILL_XP', { characterId: 'masedog', skill: 'combat', xp: 2 });
+      } else {
+        playFailure();
+        playZombieGroan();
+        damageFlash(0.5);
+        messages.push(`You rolled ${vsResult.playerTotal} + ${playerCombat} = ${vsResult.total}. The ${zombieType} rolled ${vsResult.enemyTotal} + ${zombiePower} = ${vsResult.enemyTotal + zombiePower}.`);
+        messages.push('The zombie overpowers you!');
+        // Take damage based on zombie type
+        const damage = zombiePower * 5;
+        dispatch('UPDATE_PLAYER_HEALTH', -damage);
+        messages.push(`You take ${damage} damage!`);
+        dispatch('ADD_SKILL_XP', { characterId: 'masedog', skill: 'combat', xp: 1 });
       }
-      if (combatResult.casualties.length > 0) damageFlash(0.5);
     } else {
       if (choice.resultText) messages.push(choice.resultText);
     }

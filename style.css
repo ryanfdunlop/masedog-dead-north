@@ -974,7 +974,8 @@ body.region-ottawa {
   image-rendering: auto; /* Smooth for dice */
   border: 1px solid #333;
   border-radius: 8px;
-  max-width: 90vw;
+  max-width: 95vw;
+  width: min(95vw, 600px);
 }
 
 .dice-info {
@@ -1033,6 +1034,64 @@ body.region-ottawa {
   font-size: 14px;
   color: var(--text-dim);
   margin-bottom: 4px;
+}
+
+.dice-total-line {
+  font-size: 18px;
+  color: var(--text-primary);
+  margin: 4px 0;
+}
+
+.dice-total-line strong { color: var(--accent-yellow); font-size: 22px; }
+
+/* VS Mode */
+.dice-vs-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.dice-player-label {
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  color: #ffffff;
+}
+
+.dice-enemy-label {
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  color: #cc3333;
+}
+
+.dice-vs-text {
+  font-family: var(--font-pixel);
+  font-size: 14px;
+  color: var(--accent-yellow);
+  text-shadow: 0 0 10px rgba(204, 170, 34, 0.5);
+}
+
+.dice-vs-result {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 6px;
+}
+
+.dice-vs-score {
+  font-family: var(--font-pixel);
+  font-size: 28px;
+}
+
+.dice-vs-score.player { color: #ffffff; text-shadow: 0 0 15px rgba(255,255,255,0.5); }
+.dice-vs-score.enemy { color: #cc3333; text-shadow: 0 0 15px rgba(204,51,51,0.5); }
+
+.dice-vs-label {
+  font-family: var(--font-pixel);
+  font-size: 12px;
+  color: var(--accent-yellow);
 }
 
 .dice-final {
