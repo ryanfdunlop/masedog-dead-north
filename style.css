@@ -282,12 +282,17 @@ body {
 #screen-camp {
   padding-top: 50px;
   overflow-y: auto;
+  position: relative;
+  z-index: 10;
+  background: rgba(8, 8, 14, 0.92);
 }
 
 #camp-content {
   max-width: 800px;
   margin: 0 auto;
   padding: 24px 32px;
+  position: relative;
+  z-index: 10;
 }
 
 .camp-header {
@@ -1357,6 +1362,60 @@ body.region-ottawa {
   color: var(--accent-green);
   font-size: 16px;
 }
+
+/* Risk/Reward Meter */
+.risk-meter {
+  background: var(--bg-panel);
+  border: 1px solid #2a2a35;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  border-left: 3px solid var(--accent-yellow);
+}
+
+.risk-meter-header {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--accent-yellow);
+  letter-spacing: 2px;
+  margin-bottom: 6px;
+}
+
+.risk-meter-bar {
+  height: 8px;
+  background: linear-gradient(90deg, var(--accent-green) 0%, var(--accent-yellow) 50%, var(--accent-red) 100%);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.risk-meter-fill {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.3);
+  border-right: 2px solid white;
+  transition: width 0.3s;
+}
+
+.risk-meter-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  margin-top: 3px;
+}
+
+.risk-low { color: var(--accent-green); }
+.risk-current { color: var(--accent-yellow); font-family: var(--font-pixel); font-size: 7px; }
+.risk-high { color: var(--accent-red); }
+
+.risk-meter-info {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.risk-reward-up { color: var(--accent-green); }
+.risk-reward-up strong { color: var(--accent-yellow); font-size: 14px; }
+.risk-reward-down { color: var(--accent-red); font-size: 11px; }
 
 /* Skill training picker */
 .skill-train-picker {

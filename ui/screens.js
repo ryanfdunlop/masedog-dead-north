@@ -276,6 +276,27 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
   // Refresh the persistent stats panel
   refreshStatsPanel();
 
+  // RISK/REWARD METER — shows escalating risk AND reward
+  const rewardMultiplier = 1 + rollNumber * 0.5;
+  const nextRewardMult = 1 + (rollNumber + 1) * 0.5; // What you'd get on next win
+  const riskMeterHtml = rollNumber > 0 ? `
+    <div class="risk-meter">
+      <div class="risk-meter-header">RISK / REWARD</div>
+      <div class="risk-meter-bar">
+        <div class="risk-meter-fill" style="width: ${Math.min(100, rollNumber * 20)}%"></div>
+      </div>
+      <div class="risk-meter-labels">
+        <span class="risk-low">Safe</span>
+        <span class="risk-current">Roll ${rollNumber + 1}</span>
+        <span class="risk-high">Danger</span>
+      </div>
+      <div class="risk-meter-info">
+        <div class="risk-reward-up">🏆 Next win: <strong>${nextRewardMult}x</strong> reward</div>
+        <div class="risk-reward-down">💀 Fail: lose ${Math.min(75, 30 + (rollNumber) * 15)}% of gains + zombie damage</div>
+      </div>
+    </div>
+  ` : '';
+
   // Show what's been gained so far
   let gainedHtml = '';
   const gainedEntries = Object.entries(gained);
@@ -302,6 +323,7 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
   }
 
   let html = `
+    ${riskMeterHtml}
     ${gainedHtml}
     ${riskHtml}
     <div class="camp-actions-grid">
@@ -357,9 +379,12 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
 
       if (vsResult.success) {
         // YOU BEAT THE ZOMBIES — win the resource!
+        // ESCALATING REWARDS: each consecutive win gives MORE
+        // Roll 1: 1x reward, Roll 2: 1.5x, Roll 3: 2x, Roll 4: 2.5x, Roll 5: 3x
+        const rewardMultiplier = 1 + (rollNumber - 1) * 0.5;
         const result = rollForResource(action, rollNumber);
         const reward = result.reward || { type: action.reward.type, amount: action.reward.min };
-        let wonAmount = reward.amount;
+        let wonAmount = Math.ceil(reward.amount * rewardMultiplier);
 
         if (vsResult.critSuccess) {
           wonAmount *= 2; // Double sixes = double reward!
@@ -372,11 +397,13 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
         updateHUD();
         refreshStatsPanel();
 
+        const multiplierText = rewardMultiplier > 1 ? ` (${rewardMultiplier}x streak bonus!)` : '';
+
         if (vsResult.critSuccess) {
           area.innerHTML = `
             <div class="luck-result success">
               <div class="luck-result-icon">🎯</div>
-              <div>DOUBLE SIXES! You crushed them! Won ${wonAmount} ${reward.type}!</div>
+              <div>DOUBLE SIXES! Won ${wonAmount} ${reward.type}!${multiplierText}</div>
               <div style="font-size:10px; margin-top:4px;">Your ${vsResult.total} demolished their ${vsResult.enemyTotal + edge}</div>
             </div>
           `;
@@ -384,7 +411,7 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
           area.innerHTML = `
             <div class="luck-result success">
               <div class="luck-result-icon">${action.icon}</div>
-              <div>You beat the zombies! Won ${wonAmount} ${reward.type}!</div>
+              <div>Won ${wonAmount} ${reward.type}!${multiplierText}</div>
               <div style="font-size:10px; margin-top:4px;">You: ${vsResult.playerTotal} vs Zombie: ${vsResult.enemyTotal + edge}</div>
             </div>
           `;
