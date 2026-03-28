@@ -33,6 +33,8 @@ import { getCurrentWaypoint, getNextWaypoint, getProgress } from '../data/locati
 import { getSeasonNarration, getMonthName } from '../data/seasons.js';
 import { showScreen, updateHUD } from '../ui/screens.js';
 import { typeText, showChoices, clearNarration, showResults } from '../ui/narrator.js';
+import { initTransitions, fadeTransition, damageFlash, screenShake, glitchEffect } from '../ui/transitions.js';
+import { initEffects, setWeatherEffect, applyDayNightTint, setLocationTheme } from '../ui/effects.js';
 
 // Register all events
 registerEvents(COMBAT_EVENTS);
@@ -66,11 +68,14 @@ let prologuePhase = 'intro';
  * Start a new game.
  */
 export function startNewGame(seed) {
+  initTransitions();
+  initEffects();
   newGame(seed);
   initStartingParty();
+  setLocationTheme('vancouver');
   dispatch('SET_PHASE', PHASE.PROLOGUE);
   prologuePhase = 'intro';
-  runPrologue();
+  fadeTransition(600).then(() => runPrologue());
 }
 
 /**
@@ -224,6 +229,12 @@ async function runTurn() {
   const weatherDesc = generateWeather();
   messages.push(weatherDesc);
 
+  // Visual effects for weather and location
+  const region = getCurrentRegion(getState().journey.currentKm);
+  setLocationTheme(region);
+  setWeatherEffect(getState().weather.current);
+  applyDayNightTint(updatedState.calendar.season);
+
   // Weather effects
   const weatherMsgs = applyWeatherEffects();
   messages.push(...weatherMsgs);
@@ -348,11 +359,13 @@ async function runEvent(event) {
       }
     } else if (choice.combat) {
       // Direct combat (no skill check)
+      screenShake(6, 400);
       const combatResult = resolveCombat(choice.combat);
       messages.push(...combatResult.messages);
       if (choice.successText && combatResult.outcome === 'victory') {
         messages.push(choice.successText);
       }
+      if (combatResult.casualties.length > 0) damageFlash(0.5);
     } else {
       if (choice.resultText) messages.push(choice.resultText);
     }

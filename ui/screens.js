@@ -11,6 +11,7 @@ import { getMonthName } from '../data/seasons.js';
 import { initNarrator, clearNarration } from './narrator.js';
 import { renderMap } from './map.js';
 import { renderInventory } from './inventory.js';
+import { renderPartyPortraits, getPortraitDataURL } from './portraits.js';
 import { saveGame, loadGame, getSaveSlots, hasSaves, autosave } from '../engine/save.js';
 
 let screens = {};
@@ -443,21 +444,28 @@ export function updateHUD() {
   const resources = getResourceStatus();
   const progress = getProgress(state.journey.currentKm);
 
+  // Build portrait images for HUD
+  const allChars = [state.player, ...state.party.filter(c => c.isAlive)];
+  const portraitHTML = allChars.map(c => {
+    const url = getPortraitDataURL(c);
+    return `<img class="hud-portrait" src="${url}" title="${c.name}: HP ${c.health}" alt="${c.name}">`;
+  }).join('');
+
   hudEl.innerHTML = `
     <div class="hud-left">
-      <span class="hud-item ${resources.food.critical ? 'critical' : ''}">Food: ${resources.food.amount}</span>
-      <span class="hud-item ${resources.water.critical ? 'critical' : ''}">Water: ${resources.water.amount}</span>
-      <span class="hud-item ${resources.medicine.critical ? 'critical' : ''}">Med: ${resources.medicine.amount}</span>
-      <span class="hud-item ${resources.ammo.critical ? 'critical' : ''}">Ammo: ${resources.ammo.amount}</span>
+      <div class="hud-portraits">${portraitHTML}</div>
+      <span class="hud-item ${resources.food.critical ? 'critical' : ''}">Food:${resources.food.amount}</span>
+      <span class="hud-item ${resources.water.critical ? 'critical' : ''}">H2O:${resources.water.amount}</span>
+      <span class="hud-item ${resources.medicine.critical ? 'critical' : ''}">Med:${resources.medicine.amount}</span>
+      <span class="hud-item ${resources.ammo.critical ? 'critical' : ''}">Ammo:${resources.ammo.amount}</span>
     </div>
     <div class="hud-center">
       <span class="hud-week">Week ${state.calendar.week}/52</span>
-      <span class="hud-progress">${progress}% to Ottawa</span>
+      <span class="hud-progress">${progress}%</span>
     </div>
     <div class="hud-right">
-      <span class="hud-item">HP: ${state.player.health}</span>
-      <span class="hud-item">Morale: ${state.player.morale}</span>
-      <span class="hud-item">Party: ${getPartySize()}</span>
+      <span class="hud-item">HP:${state.player.health}</span>
+      <span class="hud-item">Morale:${state.player.morale}</span>
     </div>
   `;
 }
