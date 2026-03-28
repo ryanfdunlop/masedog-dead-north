@@ -244,18 +244,51 @@ function renderPushYourLuck(area, campData) {
 function showResourcePicker(area, actions, gained, rollNumber, sessionActive, campData) {
   if (!sessionActive) return;
 
+  const state = getState();
+  const resources = state.resources;
+
+  // LIVE STATS PANEL — shows current resources and what you've won this session
+  const liveStatsHtml = `
+    <div class="luck-live-stats">
+      <div class="luck-stats-header">YOUR CURRENT STATUS</div>
+      <div class="luck-stats-grid">
+        <div class="luck-stat"><span class="luck-stat-icon">❤️</span> HP: <strong>${state.player.health}</strong>/100</div>
+        <div class="luck-stat"><span class="luck-stat-icon">💧</span> Water: <strong>${resources.water}</strong></div>
+        <div class="luck-stat"><span class="luck-stat-icon">🍖</span> Food: <strong>${resources.food}</strong></div>
+        <div class="luck-stat"><span class="luck-stat-icon">💊</span> Medicine: <strong>${resources.medicine}</strong></div>
+        <div class="luck-stat"><span class="luck-stat-icon">🔫</span> Ammo: <strong>${resources.ammo}</strong></div>
+        <div class="luck-stat"><span class="luck-stat-icon">🔧</span> Scrap: <strong>${resources.scrap}</strong></div>
+      </div>
+    </div>
+  `;
+
   // Show what's been gained so far
   let gainedHtml = '';
   const gainedEntries = Object.entries(gained);
   if (gainedEntries.length > 0) {
-    gainedHtml = `<div class="luck-gained"><strong>Won so far:</strong> ${gainedEntries.map(([t, a]) => `<span class="luck-gain-item">${t}: +${a}</span>`).join(' ')}</div>`;
+    gainedHtml = `<div class="luck-gained"><strong>🎒 Won this session:</strong> ${gainedEntries.map(([t, a]) => `<span class="luck-gain-item">${t}: +${a}</span>`).join(' ')}</div>`;
   }
 
-  const riskHtml = rollNumber > 0
-    ? `<div class="luck-risk">Roll ${rollNumber + 1} — Difficulty increased! ${rollNumber >= 2 ? '<span style="color:var(--accent-red)">HIGH RISK!</span>' : ''}</div>`
-    : `<div class="luck-risk">Roll 1 — Starting difficulty</div>`;
+  // Risk warning — show what you could lose
+  let riskHtml = '';
+  if (rollNumber === 0) {
+    riskHtml = `<div class="luck-risk">🎲 Roll 1 — Starting difficulty. Pick a resource to scavenge!</div>`;
+  } else {
+    const { losses, lossPercent } = calculateFailPenalty(gained, rollNumber + 1);
+    const lossPreview = Object.entries(losses).map(([t, a]) => `${t}: -${a}`).join(', ');
+    riskHtml = `
+      <div class="luck-risk ${rollNumber >= 2 ? 'luck-risk-high' : ''}">
+        🎲 Roll ${rollNumber + 1} — Zombies are getting stronger! (+${rollNumber * 2} to their dice)
+        ${rollNumber >= 2 ? '<span class="luck-danger-tag">⚠️ HIGH RISK</span>' : ''}
+      </div>
+      <div class="luck-loss-warning">
+        ⚠️ If you fail: lose ~${lossPercent}% of gains${lossPreview ? ` (${lossPreview})` : ''} + zombie damage
+      </div>
+    `;
+  }
 
   let html = `
+    ${liveStatsHtml}
     ${gainedHtml}
     ${riskHtml}
     <div class="camp-actions-grid">
@@ -308,14 +341,23 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
         // YOU BEAT THE ZOMBIES — win the resource!
         const result = rollForResource(action, rollNumber);
         const reward = result.reward || { type: action.reward.type, amount: action.reward.min };
-        gained[reward.type] = (gained[reward.type] || 0) + reward.amount;
+        let wonAmount = reward.amount;
 
         if (vsResult.critSuccess) {
-          gained[reward.type] += reward.amount;
+          wonAmount *= 2; // Double sixes = double reward!
+        }
+
+        gained[reward.type] = (gained[reward.type] || 0) + wonAmount;
+
+        // APPLY IMMEDIATELY so stats update in real-time
+        applyGains({ [reward.type]: wonAmount });
+        updateHUD();
+
+        if (vsResult.critSuccess) {
           area.innerHTML = `
             <div class="luck-result success">
               <div class="luck-result-icon">🎯</div>
-              <div>DOUBLE SIXES! You crushed them! Won ${reward.amount * 2} ${reward.type}!</div>
+              <div>DOUBLE SIXES! You crushed them! Won ${wonAmount} ${reward.type}!</div>
               <div style="font-size:10px; margin-top:4px;">Your ${vsResult.total} demolished their ${vsResult.enemyTotal + zombiePower}</div>
             </div>
           `;
@@ -323,7 +365,7 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
           area.innerHTML = `
             <div class="luck-result success">
               <div class="luck-result-icon">${action.icon}</div>
-              <div>You beat the zombies! Won ${reward.amount} ${reward.type}!</div>
+              <div>You beat the zombies! Won ${wonAmount} ${reward.type}!</div>
               <div style="font-size:10px; margin-top:4px;">You: ${vsResult.playerTotal} vs Zombie: ${vsResult.enemyTotal + zombiePower}</div>
             </div>
           `;
@@ -334,11 +376,8 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
 
       } else {
         // ZOMBIES WIN — they raid your supplies!
+        // Gains were already applied on each win, so losses subtract directly
         const { losses, lossPercent } = calculateFailPenalty(gained, rollNumber);
-
-        if (Object.keys(gained).length > 0) {
-          applyGains(gained);
-        }
         const lossMessages = applyLosses(losses);
 
         // Zombie damage based on how badly they beat you
@@ -401,14 +440,16 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
   // Cash out button
   document.getElementById('btn-cash-out')?.addEventListener('click', () => {
     if (Object.keys(gained).length > 0) {
-      const messages = applyGains(gained);
+      // Gains already applied — just show summary
+      const summary = Object.entries(gained).map(([t, a]) => `${t}: +${a}`).join(', ');
       area.innerHTML = `
         <div class="luck-result success">
           <div class="luck-result-icon">✅</div>
-          <div>Cashed out safely!</div>
+          <div>Cashed out safely! Smart move.</div>
         </div>
         <div class="luck-cashout">
-          ${messages.map(m => `<div>${m}</div>`).join('')}
+          <div>Total gained: ${summary}</div>
+          <div style="color: var(--accent-green); margin-top:4px;">All resources secured in your pack.</div>
         </div>
         <button class="btn-continue" id="btn-luck-done" style="margin-top: 12px;">CONTINUE JOURNEY</button>
       `;

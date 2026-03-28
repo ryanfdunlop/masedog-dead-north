@@ -1197,6 +1197,64 @@ body.region-ottawa {
   margin-top: 2px;
 }
 
+/* Push Your Luck — Live Stats */
+.luck-live-stats {
+  background: var(--bg-panel);
+  border: 1px solid #2a2a35;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+}
+
+.luck-stats-header {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--accent-blue);
+  letter-spacing: 2px;
+  margin-bottom: 6px;
+}
+
+.luck-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px 12px;
+}
+
+.luck-stat {
+  font-size: 15px;
+  color: var(--text-dim);
+}
+
+.luck-stat strong {
+  color: var(--text-primary);
+  font-size: 17px;
+}
+
+.luck-stat-icon { margin-right: 2px; }
+
+.luck-loss-warning {
+  background: rgba(204, 51, 51, 0.08);
+  border: 1px dashed var(--accent-red);
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--accent-red);
+}
+
+.luck-risk-high {
+  color: var(--accent-red) !important;
+  font-weight: bold;
+}
+
+.luck-danger-tag {
+  display: inline-block;
+  background: var(--accent-red);
+  color: white;
+  padding: 1px 6px;
+  font-size: 7px;
+  margin-left: 6px;
+  animation: pulse 1s infinite;
+}
+
 /* Push Your Luck */
 .luck-gained {
   background: rgba(51, 170, 68, 0.1);
