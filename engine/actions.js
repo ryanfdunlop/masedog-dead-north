@@ -32,18 +32,24 @@ export function getResourceActions() {
   const isUrban = ['vancouver', 'alberta', 'manitoba', 'ontario_south', 'ottawa_approach'].includes(region);
   const isWinter = season === 'winter';
 
-  // VS MODE: Both sides roll 2d6. Zombie gets a small bonus.
-  // zombieEdge = how many bonus points the zombie adds to their 2d6.
-  // zombieEdge 0 = 50/50, +1 = ~40% player, +2 = ~30%, +3 = ~20%
-  // Each consecutive roll adds +1 to zombie edge (they get alerted)
-  // Roll 1: base edge. Roll 2: +1. Roll 3: +2. Roll 4: +3.
+  // VS MODE: Player rolls 2d6 + playerEdge, Zombie rolls 2d6 + zombieEdge.
+  // Player starts with an advantage that shrinks each roll.
+  // playerEdge is subtracted by 1 each consecutive roll.
+  //
+  // With playerEdge 2, zombieEdge 0:
+  //   Roll 1: player +2 vs zombie +0 = ~65% player win
+  //   Roll 2: player +2 vs zombie +1 = ~55%
+  //   Roll 3: player +2 vs zombie +2 = ~44% (even)
+  //   Roll 4: player +2 vs zombie +3 = ~34%
+  //   Roll 5: player +2 vs zombie +4 = ~24%
   return [
     {
       id: 'water',
       name: 'Scout for Water',
       icon: '💧',
       reward: { type: 'water', min: 2, max: isWinter ? 3 : 5 },
-      zombieEdge: isWinter ? 2 : 0,
+      playerEdge: isWinter ? 1 : 2,
+      zombieEdge: isWinter ? 1 : 0,
       description: isWinter ? 'Melt snow and ice for water.' : 'Search for streams or stored water.',
     },
     {
@@ -51,7 +57,8 @@ export function getResourceActions() {
       name: 'Hunt & Forage',
       icon: '🍖',
       reward: { type: 'food', min: 2, max: isWinter ? 3 : 5 },
-      zombieEdge: isWinter ? 2 : 0,
+      playerEdge: isWinter ? 1 : 2,
+      zombieEdge: isWinter ? 1 : 0,
       description: isWinter ? 'Set traps in the snow.' : 'Hunt game or gather supplies.',
     },
     {
@@ -59,7 +66,8 @@ export function getResourceActions() {
       name: 'Medical Supply Run',
       icon: '💊',
       reward: { type: 'medicine', min: 1, max: isUrban ? 3 : 2 },
-      zombieEdge: isUrban ? 0 : 2,
+      playerEdge: 2,
+      zombieEdge: isUrban ? 0 : 1,
       description: isUrban ? 'Raid a pharmacy or clinic.' : 'Search farmhouses for first aid.',
     },
     {
@@ -67,6 +75,7 @@ export function getResourceActions() {
       name: 'Scavenge Ammo',
       icon: '🔫',
       reward: { type: 'ammo', min: 2, max: isUrban ? 6 : 3 },
+      playerEdge: 2,
       zombieEdge: isUrban ? 0 : 1,
       description: isUrban ? 'Check police cars, gun stores.' : 'Search hunting cabins.',
     },
@@ -75,6 +84,7 @@ export function getResourceActions() {
       name: 'Salvage Materials',
       icon: '🔧',
       reward: { type: 'scrap', min: 2, max: 5 },
+      playerEdge: 2,
       zombieEdge: 0,
       description: 'Pull apart wreckage for useful parts.',
     },
@@ -83,6 +93,7 @@ export function getResourceActions() {
       name: 'Rest & Recover',
       icon: '🛏️',
       reward: { type: 'health', min: 8, max: 20 },
+      playerEdge: 3,
       zombieEdge: 0,
       description: 'Find shelter and rest. Recover HP.',
     },

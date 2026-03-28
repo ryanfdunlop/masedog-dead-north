@@ -308,12 +308,13 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
   `;
 
   for (const action of actions) {
-    // Zombie edge grows each roll: base + rollNumber
-    const edge = (action.zombieEdge || 0) + rollNumber;
-    // VS chance: your 2d6 vs zombie 2d6+edge
-    const chance = calculateVSChance(0, edge);
-    const chanceClass = chance >= 50 ? 'high' : chance >= 30 ? 'medium' : 'low';
-    const edgeLabel = edge === 0 ? 'Even odds' : `Zombie +${edge}`;
+    // Player has a starting advantage, zombie catches up each roll
+    const pEdge = action.playerEdge || 0;
+    const zEdge = (action.zombieEdge || 0) + rollNumber;
+    const chance = calculateVSChance(pEdge, zEdge);
+    const chanceClass = chance >= 55 ? 'high' : chance >= 35 ? 'medium' : 'low';
+    const diff = pEdge - zEdge;
+    const edgeLabel = diff > 0 ? `You +${diff}` : diff === 0 ? 'Even odds' : `Zombie +${-diff}`;
 
     html += `
       <button class="camp-action-btn push-luck-btn" data-action-id="${action.id}">
@@ -340,13 +341,14 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
       const action = actions.find(a => a.id === actionId);
       if (!action) return;
 
-      // Zombie edge grows each roll
+      // Player starts strong, zombie catches up each roll
+      const pEdge = action.playerEdge || 0;
       const edge = (action.zombieEdge || 0) + rollNumber;
 
       // VS DICE BATTLE — white dice vs red dice!
       const vsResult = await rollDiceVS({
         label: `${action.icon} ${action.name} vs ZOMBIES`,
-        playerBonus: 0,
+        playerBonus: pEdge,
         enemyBonusVal: edge,
         enemyName: rollNumber >= 3 ? 'ZOMBIE HORDE' : rollNumber >= 1 ? 'ZOMBIES' : 'ZOMBIE SCOUT',
       });
