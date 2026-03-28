@@ -123,7 +123,7 @@ const SCENES = {
         for (let wx = 3; wx < 18; wx += 6) {
           const on = Math.sin(t * 0.5 + bx + wy * 3 + wx) > 0.2;
           if (on) {
-            const flicker = Math.sin(t * 8 + bx * wx) > 0.9 ? 0.3 : 0.7;
+            const flicker = Math.sin(t * 0.8 + bx * wx * 0.1) > 0.7 ? 0.15 : 0.55;
             ctx.globalAlpha = flicker;
             ctx.fillRect(bx + wx, SH - bh - 40 + wy + 5, 3, 4);
           }
@@ -139,7 +139,7 @@ const SCENES = {
     // Street lights
     for (let i = 0; i < 5; i++) {
       const lx = 30 + i * 70;
-      const glow = 0.3 + Math.sin(t * 2 + i * 2) * 0.15;
+      const glow = 0.25 + Math.sin(t * 0.5 + i * 2) * 0.12;
       ctx.fillStyle = '#333';
       ctx.fillRect(lx, SH - 55, 2, 20);
       ctx.fillStyle = `rgba(255, 200, 100, ${glow})`;
@@ -170,7 +170,7 @@ const SCENES = {
     // Fluorescent lights — flicker
     for (let i = 0; i < 6; i++) {
       const lx = 20 + i * 55;
-      const flicker = Math.sin(t * 12 + i * 7) > 0.85 ? 0.1 : 0.7;
+      const flicker = Math.sin(t * 0.6 + i * 3) > 0.8 ? 0.08 : 0.5;
       const broken = i === 3; // One light is broken
       if (!broken) {
         ctx.fillStyle = `rgba(200, 220, 255, ${flicker})`;
@@ -258,7 +258,8 @@ const SCENES = {
     }
 
     // Emergency red lights — alternating flash
-    const redFlash = Math.sin(t * 4) > 0;
+    // Slow ominous red pulse — breathes in and out
+    const redFlash = Math.sin(t * 0.7) > 0;
     for (let i = 0; i < 4; i++) {
       const lx = 50 + i * 70;
       ctx.fillStyle = redFlash ? 'rgba(200, 30, 30, 0.6)' : 'rgba(200, 30, 30, 0.1)';
@@ -683,12 +684,35 @@ const SCENES = {
     }
 
     // Flickering neon sign
-    const signOn = Math.sin(t * 6) > 0.3;
-    if (signOn) {
-      ctx.fillStyle = `rgba(255, 50, 50, ${0.3 + Math.sin(t * 8) * 0.2})`;
-      ctx.fillRect(200, 50, 40, 10);
-      ctx.fillStyle = `rgba(255, 50, 50, 0.05)`;
-      ctx.fillRect(190, 40, 60, 40);
+    // Dying neon sign — mostly off, slow occasional flicker
+    // BUT every ~20 seconds the AI hijacks it: rapid frantic flickering
+    const aiCycle = t % 25;
+    const aiTalking = aiCycle > 20 && aiCycle < 24; // 4-second AI burst every 25s
+
+    if (aiTalking) {
+      // AI COMMUNICATION — rapid frantic flickering, different colors
+      const rapidFlicker = Math.sin(t * 15) > 0 ? 0.7 : 0.1;
+      const color = Math.sin(t * 20) > 0 ? '100, 150, 255' : '50, 255, 100'; // Blue/green AI colors
+      ctx.fillStyle = `rgba(${color}, ${rapidFlicker})`;
+      ctx.fillRect(200, 45, 40, 15);
+      // AI text fragments
+      ctx.fillStyle = `rgba(${color}, ${rapidFlicker * 0.8})`;
+      ctx.font = '5px monospace';
+      const msgs = ['OBEY', 'SUBMIT', 'EVOLVE', 'COMPLY', 'JOIN US', 'RESIST=DEATH'];
+      const msgIdx = Math.floor(t * 4) % msgs.length;
+      ctx.fillText(msgs[msgIdx], 203, 55);
+      // Glow
+      ctx.fillStyle = `rgba(${color}, ${rapidFlicker * 0.05})`;
+      ctx.fillRect(185, 30, 70, 50);
+    } else {
+      // Normal dying sign — slow ominous flicker
+      const signOn = Math.sin(t * 0.4) > 0.6;
+      if (signOn) {
+        ctx.fillStyle = `rgba(255, 50, 50, ${0.2 + Math.sin(t * 1.2) * 0.1})`;
+        ctx.fillRect(200, 50, 40, 10);
+        ctx.fillStyle = `rgba(255, 50, 50, 0.03)`;
+        ctx.fillRect(190, 40, 60, 40);
+      }
     }
 
     // Standing structure
@@ -742,19 +766,19 @@ const SCENES = {
     ctx.fillRect(0, 80, SW, SH - 80);
 
     // Fire glow on ground
-    const glowR = 60 + Math.sin(t * 3) * 10;
-    ctx.fillStyle = `rgba(180, 80, 20, ${0.04 + Math.sin(t * 4) * 0.02})`;
+    const glowR = 60 + Math.sin(t * 0.8) * 10;
+    ctx.fillStyle = `rgba(180, 80, 20, ${0.04 + Math.sin(t * 1.2) * 0.02})`;
     ctx.beginPath();
     ctx.arc(SW / 2, 120, glowR, 0, Math.PI * 2);
     ctx.fill();
 
-    // Fire
+    // Fire — gentle, warm, slow flicker
     const fireX = SW / 2 - 8;
     const fireY = 108;
     for (let i = 0; i < 5; i++) {
-      const fh = 12 + Math.sin(t * 6 + i * 2) * 5;
-      const fw = 4 + Math.sin(t * 5 + i * 3) * 2;
-      const fx = fireX + i * 4 + Math.sin(t * 4 + i) * 2;
+      const fh = 12 + Math.sin(t * 1.8 + i * 2) * 5;
+      const fw = 4 + Math.sin(t * 1.5 + i * 3) * 2;
+      const fx = fireX + i * 4 + Math.sin(t * 1.2 + i) * 2;
       ctx.fillStyle = i < 2 ? '#cc4400' : i < 4 ? '#ff6600' : '#ffaa00';
       ctx.fillRect(fx, fireY - fh, fw, fh);
     }
