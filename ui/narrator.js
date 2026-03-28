@@ -90,9 +90,9 @@ export function typeText(text) {
       if (charIndex < lines[lineIndex].length) {
         currentLine.textContent += lines[lineIndex][charIndex];
         charIndex++;
-        // Play tick sound every 3rd character (not every char — too noisy)
+        // Play tick sound every 3rd character if text sound is enabled
         typeTickCounter++;
-        if (typeTickCounter % 3 === 0) {
+        if (typeTickCounter % 3 === 0 && getSettings().textSound) {
           try { playTypeTick(); } catch(e) {}
         }
         setTimeout(tick, CHAR_DELAY);

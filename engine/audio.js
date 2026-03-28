@@ -386,18 +386,75 @@ export function playHeartMonitor(flatline = false) {
   if (!ctx) return;
   const t = now();
   if (flatline) {
-    // Continuous tone
     const o = osc('sine', 1000);
-    const g1 = gain(0.08);
-    play(o, [g1], 0, 2);
+    const g1 = gain(0.15);
+    play(o, [g1], 0, 3);
   } else {
-    // Regular beeps
-    for (let i = 0; i < 3; i++) {
+    // Slow rhythmic beep — 5 beeps over 4 seconds, like a real monitor
+    for (let i = 0; i < 5; i++) {
       const o = osc('sine', 1000);
-      const g1 = gain(0.06);
-      g1.gain.exponentialRampToValueAtTime(0.001, t + i * 0.8 + 0.1);
-      play(o, [g1], i * 0.8, i * 0.8 + 0.1);
+      const g1 = gain(0.18); // Louder — should be clearly audible
+      g1.gain.setValueAtTime(0.18, t + i * 0.85);
+      g1.gain.exponentialRampToValueAtTime(0.001, t + i * 0.85 + 0.12);
+      play(o, [g1], i * 0.85, i * 0.85 + 0.12);
     }
+  }
+}
+
+/**
+ * Hospital ambient — low hum + distant clamoring + PA system crackle.
+ * Plays for ~6 seconds. Call repeatedly for continuous ambience.
+ */
+export function playHospitalAmbient() {
+  if (!ctx) return;
+  const t = now();
+
+  // Fluorescent light hum (50Hz + harmonics)
+  const hum = osc('sawtooth', 100);
+  const humG = gain(0.02);
+  const humF = filter('lowpass', 200);
+  hum.connect(humF); humF.connect(humG); humG.connect(sfxGain);
+  hum.start(t); hum.stop(t + 6);
+
+  // Distant clamoring / commotion (filtered noise with movement)
+  const n = noise(5);
+  const nG = gain(0);
+  nG.gain.linearRampToValueAtTime(0.03, t + 0.5);
+  nG.gain.linearRampToValueAtTime(0.05, t + 2);
+  nG.gain.linearRampToValueAtTime(0.02, t + 4);
+  nG.gain.linearRampToValueAtTime(0, t + 5);
+  const nF = filter('bandpass', 600, 1);
+  // Sweep filter for movement feel
+  nF.frequency.linearRampToValueAtTime(900, t + 2);
+  nF.frequency.linearRampToValueAtTime(400, t + 4);
+  const p1 = panner(-0.5);
+  n.connect(nF); nF.connect(nG); nG.connect(p1); p1.connect(sfxGain);
+  n.start(t); n.stop(t + 5);
+
+  // PA crackle at random point
+  if (Math.random() > 0.5) {
+    const paDelay = 1 + Math.random() * 3;
+    const pa = noise(0.3);
+    const paG = gain(0.04);
+    paG.gain.exponentialRampToValueAtTime(0.001, t + paDelay + 0.3);
+    const paF = filter('bandpass', 1200, 3);
+    const p2 = panner(0.3);
+    pa.connect(paF); paF.connect(paG); paG.connect(p2); p2.connect(sfxGain);
+    pa.start(t + paDelay); pa.stop(t + paDelay + 0.3);
+  }
+
+  // Distant muffled shout/scream (rare)
+  if (Math.random() > 0.7) {
+    const screamDelay = 2 + Math.random() * 2;
+    const scr = osc('sawtooth', 300 + Math.random() * 200);
+    scr.frequency.linearRampToValueAtTime(500, t + screamDelay + 0.3);
+    const scrG = gain(0);
+    scrG.gain.linearRampToValueAtTime(0.03, t + screamDelay + 0.05);
+    scrG.gain.linearRampToValueAtTime(0, t + screamDelay + 0.4);
+    const scrF = filter('lowpass', 800);
+    const p3 = panner((Math.random() - 0.5) * 1.4);
+    scr.connect(scrF); scrF.connect(scrG); scrG.connect(p3); p3.connect(sfxGain);
+    scr.start(t + screamDelay); scr.stop(t + screamDelay + 0.4);
   }
 }
 

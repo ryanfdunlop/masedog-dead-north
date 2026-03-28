@@ -13,6 +13,7 @@ const DEFAULTS = {
   musicVolume: 30,      // 0-100
   sfxVolume: 60,        // 0-100
   soundEnabled: true,
+  textSound: true,      // Typing tick sound on/off
 };
 
 // Timer durations in seconds for each speed and urgency level

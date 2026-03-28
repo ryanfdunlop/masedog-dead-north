@@ -4,6 +4,8 @@
 // Each scene has subtle animated elements for atmosphere.
 // ============================================================
 
+import * as audio from '../engine/audio.js';
+
 let sceneCanvas = null;
 let sceneCtx = null;
 let currentScene = null;
@@ -50,29 +52,35 @@ function playSceneAmbient(sceneId) {
     sceneAmbientInterval = null;
   }
 
-  // Import audio functions dynamically to avoid circular deps
-  import('../engine/audio.js').then(audio => {
-    const ambientSounds = {
+  const ambientSounds = {
       hospital_room: () => {
-        // Heart monitor beep every 2 seconds
+        // Heart monitor beeping + hospital ambience (hum, clamoring)
         audio.playHeartMonitor(false);
+        if (audio.playHospitalAmbient) audio.playHospitalAmbient();
         sceneAmbientInterval = setInterval(() => {
-          if (currentScene === 'hospital_room') audio.playHeartMonitor(false);
-        }, 6000);
+          if (currentScene !== 'hospital_room') return;
+          audio.playHeartMonitor(false);
+          if (audio.playHospitalAmbient) audio.playHospitalAmbient();
+        }, 4500); // Overlap slightly for continuous sound
       },
       hospital: () => {
         audio.playHeartMonitor(false);
+        if (audio.playHospitalAmbient) audio.playHospitalAmbient();
         sceneAmbientInterval = setInterval(() => {
-          if (currentScene === 'hospital') audio.playHeartMonitor(false);
-        }, 6000);
+          if (currentScene !== 'hospital') return;
+          audio.playHeartMonitor(false);
+          if (audio.playHospitalAmbient) audio.playHospitalAmbient();
+        }, 4500);
       },
       hospital_hallway: () => {
-        // Occasional door creak
+        // Hospital ambient + door creaks + footsteps
+        if (audio.playHospitalAmbient) audio.playHospitalAmbient();
         sceneAmbientInterval = setInterval(() => {
-          if (currentScene === 'hospital_hallway' && Math.random() > 0.5) {
-            audio.playDoorCreak();
-          }
-        }, 8000);
+          if (currentScene !== 'hospital_hallway') return;
+          if (audio.playHospitalAmbient) audio.playHospitalAmbient();
+          if (Math.random() > 0.4) audio.playDoorCreak();
+          if (Math.random() > 0.6 && audio.playFootstep) audio.playFootstep('concrete');
+        }, 5000);
       },
       forest: () => {
         // Crickets + occasional owl
@@ -129,9 +137,10 @@ function playSceneAmbient(sceneId) {
       },
     };
 
-    const ambientFn = ambientSounds[sceneId];
-    if (ambientFn) ambientFn();
-  }).catch(() => {});
+  const ambientFn = ambientSounds[sceneId];
+  if (ambientFn) {
+    try { ambientFn(); } catch(e) { /* Audio not ready yet */ }
+  }
 }
 
 /**

@@ -70,6 +70,15 @@ function render() {
     </div>
 
     <div class="sp-section">
+      <div class="sp-toggle-row">
+        <span>Typing Sound</span>
+        <button class="sp-toggle ${s.textSound ? 'on' : ''}" data-key="textSound">
+          ${s.textSound ? 'ON' : 'OFF'}
+        </button>
+      </div>
+    </div>
+
+    <div class="sp-section">
       <div class="sp-label">MASTER VOLUME</div>
       <div class="sp-slider-row">
         <input type="range" min="0" max="100" value="${s.masterVolume}" class="sp-slider" data-key="masterVolume">
