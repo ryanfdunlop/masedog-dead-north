@@ -18,7 +18,7 @@ import {
   applyGains, applyLosses, getShareOptions, transferHealth,
   useMedicineOn, trainSkill,
 } from '../engine/actions.js';
-import { calculateSuccessChance, convertDCtoTarget, getRollCount, rollDice } from './dice.js';
+import { calculateSuccessChance, convertDCtoTarget, getRollCount, rollDice, rollDiceVS } from './dice.js';
 
 let screens = {};
 let hudEl = null;
@@ -284,79 +284,97 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
 
   area.innerHTML = html;
 
-  // Wire buttons
+  // Wire buttons — EVERY roll is YOU (white) vs ZOMBIE (red)
   area.querySelectorAll('.push-luck-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const actionId = btn.dataset.actionId;
       const action = actions.find(a => a.id === actionId);
       if (!action) return;
 
-      // Roll using the visual dice
-      const difficulty = action.difficulty + Math.max(0, rollNumber * 2);
-      const diceResult = await rollDice({
-        skill: action.name,
-        bonus: 0, // No bonus — pure dice roll for push-your-luck
-        target: difficulty,
-        label: `${action.icon} ${action.name}`,
+      // Zombie gets stronger each consecutive roll
+      const zombiePower = action.difficulty + Math.max(0, rollNumber * 2);
+
+      // VS DICE BATTLE — white dice vs red dice!
+      const vsResult = await rollDiceVS({
+        label: `${action.icon} ${action.name} vs ZOMBIES`,
+        playerBonus: 0,  // Pure luck — no skill bonus on push-your-luck
+        enemyBonusVal: zombiePower,
+        enemyName: rollNumber >= 3 ? 'ZOMBIE HORDE' : rollNumber >= 1 ? 'ZOMBIES' : 'ZOMBIE SCOUT',
       });
 
       rollNumber++;
 
-      if (diceResult.success) {
-        // WIN — add to gained resources
+      if (vsResult.success) {
+        // YOU BEAT THE ZOMBIES — win the resource!
         const result = rollForResource(action, rollNumber);
         const reward = result.reward || { type: action.reward.type, amount: action.reward.min };
         gained[reward.type] = (gained[reward.type] || 0) + reward.amount;
 
-        if (diceResult.critSuccess) {
-          // Double sixes = bonus reward!
+        if (vsResult.critSuccess) {
           gained[reward.type] += reward.amount;
           area.innerHTML = `
             <div class="luck-result success">
               <div class="luck-result-icon">🎯</div>
-              <div>DOUBLE SIXES! Won ${reward.amount * 2} ${reward.type}!</div>
+              <div>DOUBLE SIXES! You crushed them! Won ${reward.amount * 2} ${reward.type}!</div>
+              <div style="font-size:10px; margin-top:4px;">Your ${vsResult.total} demolished their ${vsResult.enemyTotal + zombiePower}</div>
             </div>
           `;
         } else {
           area.innerHTML = `
             <div class="luck-result success">
               <div class="luck-result-icon">${action.icon}</div>
-              <div>Won ${reward.amount} ${reward.type}!</div>
+              <div>You beat the zombies! Won ${reward.amount} ${reward.type}!</div>
+              <div style="font-size:10px; margin-top:4px;">You: ${vsResult.playerTotal} vs Zombie: ${vsResult.enemyTotal + zombiePower}</div>
             </div>
           `;
         }
 
-        // Brief pause then show "roll again or cash out"
-        await new Promise(r => setTimeout(r, 1200));
+        await new Promise(r => setTimeout(r, 1500));
         showResourcePicker(area, actions, gained, rollNumber, true, campData);
 
       } else {
-        // FAIL — zombies come! Lose a chunk of what you gained
+        // ZOMBIES WIN — they raid your supplies!
         const { losses, lossPercent } = calculateFailPenalty(gained, rollNumber);
 
-        // First apply whatever was gained
         if (Object.keys(gained).length > 0) {
           applyGains(gained);
         }
-        // Then apply losses
         const lossMessages = applyLosses(losses);
+
+        // Zombie damage based on how badly they beat you
+        const margin = (vsResult.enemyTotal + zombiePower) - vsResult.total;
+        let extraDmg = 0;
+        let hordeDesc = '';
+
+        if (vsResult.critFail) {
+          extraDmg = 15;
+          hordeDesc = 'SNAKE EYES! The horde catches you completely off guard!';
+        } else if (margin > 8) {
+          extraDmg = 10;
+          hordeDesc = 'They overwhelm you! Barely escape with your life!';
+        } else if (margin > 4) {
+          extraDmg = 5;
+          hordeDesc = 'They swarm in fast! You take hits running away!';
+        } else {
+          hordeDesc = 'A close call — you escape but drop some supplies!';
+        }
+
+        if (extraDmg > 0) {
+          dispatch('UPDATE_PLAYER_HEALTH', -extraDmg);
+        }
 
         let failHtml = `
           <div class="luck-result failure">
             <div class="luck-result-icon">💀</div>
-            <div>FAILED! A zombie horde descends on your position!</div>
+            <div>ZOMBIES WIN! ${hordeDesc}</div>
+            <div style="font-size:10px; margin-top:4px;">You: ${vsResult.playerTotal} vs Zombie: ${vsResult.enemyTotal + zombiePower}</div>
           </div>
           <div class="luck-losses">
-            <div>You lose ${lossPercent}% of your gains:</div>
+            <div>The horde raids your supplies (${lossPercent}% lost):</div>
             ${lossMessages.map(m => `<div class="luck-loss-item">${m}</div>`).join('')}
+            ${extraDmg > 0 ? `<div class="luck-loss-item">Took ${extraDmg} damage in the scramble!</div>` : ''}
         `;
 
-        if (diceResult.critFail) {
-          failHtml += `<div class="luck-loss-item" style="color: var(--accent-red);">SNAKE EYES! Extra damage — the horde catches you off guard!</div>`;
-          dispatch('UPDATE_PLAYER_HEALTH', -10);
-        }
-
-        // Net result
         const netGains = {};
         for (const [type, amount] of Object.entries(gained)) {
           const loss = losses[type] || 0;
@@ -365,7 +383,7 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
         }
         const netHtml = Object.entries(netGains).length > 0
           ? `<div class="luck-net">Net gain: ${Object.entries(netGains).map(([t, a]) => `${t}: +${a}`).join(', ')}</div>`
-          : `<div class="luck-net" style="color: var(--accent-red);">You came back with nothing.</div>`;
+          : `<div class="luck-net" style="color: var(--accent-red);">The zombies took everything. You came back with nothing.</div>`;
 
         failHtml += `${netHtml}</div>`;
         failHtml += `<button class="btn-continue" id="btn-luck-done" style="margin-top: 12px;">CONTINUE JOURNEY</button>`;
