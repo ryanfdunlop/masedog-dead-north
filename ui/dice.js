@@ -344,7 +344,7 @@ function resolveResult() {
     // VS mode: compare totals + bonuses
     playerFinal = playerTotal + skillBonus;
     enemyFinal = enemyTotal + enemyBonus;
-    success = playerFinal > enemyFinal;
+    success = playerFinal >= enemyFinal; // Ties go to the player!
 
     resultEl.innerHTML = `
       <div class="dice-final">
@@ -542,7 +542,7 @@ export function calculateVSChance(playerBonus, enemyBonus) {
     for (let b1 = 1; b1 <= 6; b1++)
       for (let a2 = 1; a2 <= 6; a2++)
         for (let b2 = 1; b2 <= 6; b2++)
-          if ((a1 + b1 + playerBonus) > (a2 + b2 + enemyBonus)) wins++;
+          if ((a1 + b1 + playerBonus) >= (a2 + b2 + enemyBonus)) wins++; // Ties = player wins
   return Math.round((wins / total) * 100);
 }
 
