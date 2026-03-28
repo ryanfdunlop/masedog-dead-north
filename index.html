@@ -67,12 +67,14 @@
     import { showTitle } from './engine/game.js';
     import { loadSettings } from './engine/settings.js';
     import { initTimer } from './ui/timer.js';
+    import { initSettingsUI } from './ui/settings-ui.js';
 
     // Initialize when DOM is ready
     document.addEventListener('DOMContentLoaded', () => {
       loadSettings();
       initScreens();
       initTimer();
+      initSettingsUI();
       showTitle();
     });
   </script>

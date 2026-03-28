@@ -4,7 +4,7 @@
 // ============================================================
 
 import { calculateSuccessChance, convertDCtoTarget, getRollCount } from './dice.js';
-import { isTimerEnabled, getTimerDuration } from '../engine/settings.js';
+import { isTimerEnabled, getTimerDuration, getSettings } from '../engine/settings.js';
 import { startChoiceTimer, stopChoiceTimer } from './timer.js';
 
 const CHAR_DELAY = 25;  // ms per character for typewriter
@@ -214,9 +214,18 @@ export function showChoices(choices, callback) {
   }
   document.addEventListener('keydown', onKey);
 
-  // Start timed countdown if applicable
-  if (highestUrgency && isTimerEnabled()) {
-    const seconds = getTimerDuration(highestUrgency);
+  // Start timed countdown — applies to ALL choices when timer is enabled
+  // Uses direct timerSeconds from settings (5, 10, 20, 30, 60, or 0=off)
+  // Events with 'timed' property override with urgency-based duration
+  if (isTimerEnabled()) {
+    let seconds = 0;
+    if (highestUrgency) {
+      // Event specifies urgency — use urgency-based duration
+      seconds = getTimerDuration(highestUrgency);
+    } else {
+      // No urgency specified — use the global timerSeconds setting
+      seconds = getSettings().timerSeconds || 0;
+    }
     if (seconds > 0) {
       startChoiceTimer(seconds, () => {
         // Timer expired — auto-select the LAST choice (worst option)

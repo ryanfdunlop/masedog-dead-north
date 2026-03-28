@@ -8,6 +8,11 @@ const STORAGE_KEY = 'masedog_settings';
 const DEFAULTS = {
   timedChoices: true,
   timerSpeed: 'normal',
+  timerSeconds: 20,     // Direct seconds setting: 5, 10, 20, 30, 60, or 0 (off)
+  masterVolume: 50,     // 0-100
+  musicVolume: 30,      // 0-100
+  sfxVolume: 60,        // 0-100
+  soundEnabled: true,
 };
 
 // Timer durations in seconds for each speed and urgency level
