@@ -107,10 +107,21 @@ export function startNewGame(seed) {
 async function runPrologue() {
   const phase = PROLOGUE[prologuePhase];
   if (!phase) {
-    // Prologue complete — start the game
     finishPrologue();
     return;
   }
+
+  // Switch scene based on prologue phase — storybook scene cuts
+  const prologueScenes = {
+    intro: 'hospital_room',
+    phase1: 'hospital_room',
+    phase2: 'hospital_room',
+    phase3: 'hospital_hallway',
+    phase3b: 'hospital_hallway',
+    phase4: 'hospital_hallway',
+    phase5: 'hospital_outside',
+  };
+  setScene(prologueScenes[prologuePhase] || 'hospital');
 
   showScreen('game');
 
@@ -325,6 +336,13 @@ async function runTurn() {
  */
 async function runEvent(event) {
   const segment = event.segments ? event.segments[0] : event;
+
+  // Switch scene based on event context
+  const state = getState();
+  const region = getCurrentRegion(state.journey.currentKm);
+  const eventScene = event.scene // Events can specify a scene directly
+    || getSceneForContext(region, state.calendar.season, event.type);
+  setScene(eventScene);
 
   if (event.title) {
     await typeText(`\n--- ${event.title} ---\n`);

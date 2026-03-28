@@ -297,6 +297,460 @@ const SCENES = {
     ctx.fillRect(200, SH - 26, 12, 4);
   },
 
+  // --- HOSPITAL ROOM (Room 412 — where it begins) ---
+  hospital_room(ctx, t) {
+    ctx.fillStyle = '#0e1210';
+    ctx.fillRect(0, 0, SW, SH);
+
+    // Walls
+    ctx.fillStyle = '#1a2222';
+    ctx.fillRect(0, 0, SW, 35); // Ceiling
+    ctx.fillRect(0, 0, 8, SH); // Left wall
+    ctx.fillRect(SW - 8, 0, 8, SH); // Right wall
+
+    // Floor tiles
+    ctx.fillStyle = '#181e1e';
+    for (let x = 8; x < SW - 8; x += 16) {
+      for (let y = SH - 35; y < SH; y += 16) {
+        ctx.fillRect(x + 1, y + 1, 14, 14);
+      }
+    }
+
+    // Window (right side) — moonlight
+    ctx.fillStyle = '#151830';
+    ctx.fillRect(SW - 60, 40, 45, 50);
+    ctx.fillStyle = '#1a1e38';
+    ctx.fillRect(SW - 58, 42, 20, 46);
+    ctx.fillRect(SW - 35, 42, 20, 46);
+    // Moonlight beam
+    ctx.fillStyle = 'rgba(100, 120, 180, 0.03)';
+    ctx.beginPath();
+    ctx.moveTo(SW - 58, 90); ctx.lineTo(SW - 80, SH - 35);
+    ctx.lineTo(SW - 20, SH - 35); ctx.lineTo(SW - 15, 90);
+    ctx.fill();
+
+    // Hospital beds
+    ctx.fillStyle = '#222830';
+    ctx.fillRect(30, 80, 50, 25); // Violet's bed
+    ctx.fillRect(SW - 90, 80, 50, 25); // Cassidy's bed
+    // Bed frames
+    ctx.fillStyle = '#333';
+    ctx.fillRect(28, 78, 2, 30); ctx.fillRect(80, 78, 2, 30);
+    ctx.fillRect(SW - 92, 78, 2, 30); ctx.fillRect(SW - 40, 78, 2, 30);
+
+    // Blankets
+    ctx.fillStyle = '#2a3540';
+    ctx.fillRect(32, 82, 46, 10);
+    ctx.fillStyle = '#2a3a40';
+    ctx.fillRect(SW - 88, 82, 46, 10);
+
+    // IV drip by Violet's bed
+    ctx.fillStyle = '#444';
+    ctx.fillRect(20, 55, 2, 50);
+    ctx.fillStyle = '#556';
+    ctx.fillRect(16, 55, 10, 6);
+    // Drip (animated)
+    const dripY = 65 + ((t * 8) % 15);
+    ctx.fillStyle = 'rgba(120, 180, 200, 0.4)';
+    ctx.fillRect(21, dripY, 1, 2);
+
+    // Heart monitor — beeping line
+    ctx.fillStyle = '#0a1a0a';
+    ctx.fillRect(85, 60, 30, 20);
+    ctx.strokeStyle = '#33aa44';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 0; x < 28; x++) {
+      const px = 86 + x;
+      const phase = (x + t * 15) % 28;
+      let py = 70;
+      if (phase > 12 && phase < 14) py = 63;
+      else if (phase > 14 && phase < 16) py = 75;
+      ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    // Room number on door
+    ctx.fillStyle = '#253030';
+    ctx.fillRect(12, 45, 4, 55); // Door edge
+    ctx.fillStyle = '#88aa88';
+    ctx.font = '6px monospace';
+    ctx.fillText('412', 14, 52);
+
+    // TV in corner (emergency broadcast)
+    ctx.fillStyle = '#111';
+    ctx.fillRect(150, 40, 24, 16);
+    const tvFlicker = Math.sin(t * 0.5) > 0 ? 0.3 : 0.15;
+    ctx.fillStyle = `rgba(200, 50, 50, ${tvFlicker})`;
+    ctx.fillRect(151, 41, 22, 14);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.font = '3px monospace';
+    ctx.fillText('ALERT', 153, 49);
+
+    // Chair (where you sit)
+    ctx.fillStyle = '#2a2a20';
+    ctx.fillRect(55, 95, 14, 14);
+    ctx.fillRect(57, 85, 10, 12);
+  },
+
+  // --- HALLWAY (Hospital corridor escape) ---
+  hospital_hallway(ctx, t) {
+    ctx.fillStyle = '#0a0e0a';
+    ctx.fillRect(0, 0, SW, SH);
+
+    // Perspective corridor — walls converge to center
+    const vanishX = SW / 2;
+    const vanishY = 60;
+
+    // Floor
+    ctx.fillStyle = '#161a1a';
+    ctx.beginPath();
+    ctx.moveTo(0, SH); ctx.lineTo(vanishX - 10, vanishY + 20);
+    ctx.lineTo(vanishX + 10, vanishY + 20); ctx.lineTo(SW, SH);
+    ctx.fill();
+
+    // Floor tiles (perspective)
+    ctx.strokeStyle = '#1e2222';
+    ctx.lineWidth = 1;
+    for (let d = 0; d < 8; d++) {
+      const y = vanishY + 20 + d * 15;
+      const spread = (y - vanishY) / (SH - vanishY) * (SW / 2);
+      ctx.beginPath();
+      ctx.moveTo(vanishX - spread, y);
+      ctx.lineTo(vanishX + spread, y);
+      ctx.stroke();
+    }
+
+    // Walls
+    ctx.fillStyle = '#141a1a';
+    ctx.beginPath();
+    ctx.moveTo(0, 30); ctx.lineTo(vanishX - 10, vanishY);
+    ctx.lineTo(vanishX - 10, vanishY + 20); ctx.lineTo(0, SH);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(SW, 30); ctx.lineTo(vanishX + 10, vanishY);
+    ctx.lineTo(vanishX + 10, vanishY + 20); ctx.lineTo(SW, SH);
+    ctx.fill();
+
+    // Ceiling
+    ctx.fillStyle = '#111515';
+    ctx.beginPath();
+    ctx.moveTo(0, 0); ctx.lineTo(SW, 0);
+    ctx.lineTo(vanishX + 10, vanishY); ctx.lineTo(vanishX - 10, vanishY);
+    ctx.fill();
+
+    // Emergency lights — slow red pulse
+    const redPulse = 0.15 + Math.sin(t * 0.7) * 0.15;
+    for (let i = 0; i < 4; i++) {
+      const d = i * 0.25;
+      const ly = vanishY + 5 + d * (SH - vanishY - 20);
+      const spread = d * SW * 0.4;
+      ctx.fillStyle = `rgba(200, 30, 30, ${redPulse * (1 - d * 0.5)})`;
+      ctx.fillRect(vanishX - 3 - spread * 0.1, ly, 6, 3);
+      // Red glow pool
+      ctx.fillStyle = `rgba(200, 30, 30, ${redPulse * 0.03 * (1 - d * 0.5)})`;
+      ctx.fillRect(vanishX - spread * 0.3, ly, spread * 0.6, 20);
+    }
+
+    // Overturned gurney
+    ctx.fillStyle = '#333';
+    ctx.fillRect(vanishX - 30, SH - 55, 35, 4);
+    ctx.fillRect(vanishX - 28, SH - 52, 2, 15);
+
+    // Doors along walls
+    ctx.fillStyle = '#1a2222';
+    ctx.fillRect(20, 60, 18, 60);
+    ctx.fillRect(70, 70, 15, 50);
+    ctx.fillRect(SW - 38, 60, 18, 60);
+    ctx.fillRect(SW - 85, 70, 15, 50);
+
+    // Something at the end of the hall — shape in darkness
+    const shapePulse = Math.sin(t * 0.3) > 0.5;
+    if (shapePulse) {
+      ctx.fillStyle = 'rgba(20, 15, 15, 0.8)';
+      ctx.fillRect(vanishX - 4, vanishY + 5, 8, 15);
+    }
+
+    // Scratching marks on nearby door
+    ctx.strokeStyle = 'rgba(100, 60, 60, 0.3)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.moveTo(22 + i * 4, 65);
+      ctx.lineTo(24 + i * 4, 85);
+      ctx.stroke();
+    }
+  },
+
+  // --- PARKING GARAGE (Escape scene) ---
+  parking_garage(ctx, t) {
+    ctx.fillStyle = '#08080c';
+    ctx.fillRect(0, 0, SW, SH);
+
+    // Concrete ceiling with pipes
+    ctx.fillStyle = '#141418';
+    ctx.fillRect(0, 0, SW, 25);
+    ctx.fillStyle = '#1a1a20';
+    ctx.fillRect(20, 22, SW - 40, 3);
+    // Pipes
+    ctx.fillStyle = '#222228';
+    ctx.fillRect(0, 15, SW, 2);
+    ctx.fillRect(0, 10, SW, 2);
+
+    // Concrete pillars
+    ctx.fillStyle = '#1a1a20';
+    for (let i = 0; i < 4; i++) {
+      ctx.fillRect(40 + i * 80, 25, 12, SH - 25);
+    }
+
+    // Floor — oil stains
+    ctx.fillStyle = '#0e0e12';
+    ctx.fillRect(0, SH - 20, SW, 20);
+    ctx.fillStyle = '#0c0c10';
+    ctx.fillRect(60, SH - 18, 20, 8);
+    ctx.fillRect(180, SH - 16, 15, 6);
+
+    // Cars
+    const cars = [
+      { x: 70, color: '#222230', broken: false },
+      { x: 150, color: '#2a2020', broken: true },
+      { x: 250, color: '#202a20', broken: false },
+    ];
+    for (const car of cars) {
+      ctx.fillStyle = car.color;
+      ctx.fillRect(car.x, SH - 40, 28, 14);
+      ctx.fillStyle = car.broken ? '#1a1a1a' : '#333';
+      ctx.fillRect(car.x + 4, SH - 47, 20, 8);
+      // Wheels
+      ctx.fillStyle = '#111';
+      ctx.fillRect(car.x + 2, SH - 28, 6, 4);
+      ctx.fillRect(car.x + 20, SH - 28, 6, 4);
+      // Broken window
+      if (car.broken) {
+        ctx.fillStyle = '#0a0a0e';
+        ctx.fillRect(car.x + 8, SH - 45, 10, 5);
+      }
+    }
+
+    // Flickering overhead light — slow ominous
+    const lightOn = Math.sin(t * 0.4) > -0.3;
+    if (lightOn) {
+      const brightness = 0.3 + Math.sin(t * 0.6) * 0.1;
+      ctx.fillStyle = `rgba(200, 200, 180, ${brightness})`;
+      ctx.fillRect(155, 23, 10, 3);
+      // Light cone
+      ctx.fillStyle = `rgba(200, 200, 180, ${brightness * 0.04})`;
+      ctx.beginPath();
+      ctx.moveTo(155, 26); ctx.lineTo(130, SH - 20);
+      ctx.lineTo(185, SH - 20); ctx.lineTo(165, 26);
+      ctx.fill();
+    }
+
+    // Crawler under a car (eyes peek out)
+    const crawlerBlink = Math.sin(t * 0.5) > 0.85;
+    if (!crawlerBlink) {
+      ctx.fillStyle = 'rgba(180, 50, 50, 0.4)';
+      ctx.fillRect(74, SH - 27, 2, 2);
+      ctx.fillRect(79, SH - 27, 2, 2);
+    }
+
+    // EXIT sign — dim green
+    ctx.fillStyle = `rgba(50, 200, 80, ${0.3 + Math.sin(t * 0.3) * 0.1})`;
+    ctx.font = '6px "Press Start 2P", monospace';
+    ctx.fillText('EXIT', 10, 18);
+    ctx.fillRect(8, 19, 30, 1);
+  },
+
+  // --- STAIRWELL (Escape route) ---
+  stairwell(ctx, t) {
+    ctx.fillStyle = '#0a0a10';
+    ctx.fillRect(0, 0, SW, SH);
+
+    // Concrete walls
+    ctx.fillStyle = '#141418';
+    ctx.fillRect(0, 0, 40, SH);
+    ctx.fillRect(SW - 40, 0, 40, SH);
+
+    // Stairs going down
+    for (let i = 0; i < 10; i++) {
+      const sy = 30 + i * 15;
+      const sw = 200 + i * 8;
+      const sx = (SW - sw) / 2;
+      ctx.fillStyle = i % 2 === 0 ? '#181820' : '#1a1a24';
+      ctx.fillRect(sx, sy, sw, 14);
+      // Step edge
+      ctx.fillStyle = '#222230';
+      ctx.fillRect(sx, sy, sw, 2);
+    }
+
+    // Railing
+    ctx.fillStyle = '#2a2a35';
+    ctx.fillRect(55, 20, 3, SH - 20);
+    ctx.fillRect(SW - 58, 20, 3, SH - 20);
+    // Railing bars
+    for (let y = 30; y < SH; y += 20) {
+      ctx.fillRect(55, y, 15, 2);
+      ctx.fillRect(SW - 70, y, 15, 2);
+    }
+
+    // Floor number sign
+    ctx.fillStyle = '#333';
+    ctx.fillRect(45, 35, 16, 12);
+    ctx.fillStyle = '#888';
+    ctx.font = '7px monospace';
+    ctx.fillText('4', 50, 44);
+
+    // Emergency light — slow red
+    const pulse = 0.2 + Math.sin(t * 0.6) * 0.15;
+    ctx.fillStyle = `rgba(200, 40, 40, ${pulse})`;
+    ctx.fillRect(SW / 2 - 4, 10, 8, 4);
+    ctx.fillStyle = `rgba(200, 40, 40, ${pulse * 0.03})`;
+    ctx.fillRect(40, 14, SW - 80, SH);
+
+    // Sound visualization — scratching from below
+    if (Math.sin(t * 0.4) > 0.7) {
+      ctx.fillStyle = 'rgba(100, 80, 80, 0.2)';
+      for (let i = 0; i < 3; i++) {
+        const lx = SW / 2 - 20 + i * 15 + Math.sin(t * 2 + i) * 3;
+        ctx.fillRect(lx, SH - 8, 8, 2);
+      }
+    }
+
+    // Shadow on stairs below
+    const shadowY = SH - 30 + Math.sin(t * 0.2) * 5;
+    ctx.fillStyle = 'rgba(10, 10, 15, 0.6)';
+    ctx.fillRect(SW / 2 - 15, shadowY, 12, 20);
+  },
+
+  // --- SUPPLY ROOM (Finding Dr. Reyes) ---
+  supply_room(ctx, t) {
+    ctx.fillStyle = '#0c100c';
+    ctx.fillRect(0, 0, SW, SH);
+
+    // Small room walls
+    ctx.fillStyle = '#182018';
+    ctx.fillRect(0, 0, SW, 30);
+    ctx.fillRect(0, SH - 20, SW, 20);
+    ctx.fillRect(0, 0, 15, SH);
+    ctx.fillRect(SW - 15, 0, 15, SH);
+
+    // Shelves full of supplies
+    for (let row = 0; row < 3; row++) {
+      const shelfY = 40 + row * 35;
+      // Shelf board
+      ctx.fillStyle = '#2a2a20';
+      ctx.fillRect(20, shelfY, SW - 40, 3);
+
+      // Items on shelf
+      for (let i = 0; i < 8; i++) {
+        const ix = 25 + i * 35;
+        const colors = ['#334455', '#445533', '#553344', '#444433', '#335544', '#443355'];
+        ctx.fillStyle = colors[i % colors.length];
+        const ih = 10 + (i * 7 + row * 3) % 8;
+        ctx.fillRect(ix, shelfY - ih, 12, ih);
+      }
+    }
+
+    // Red cross on box
+    ctx.fillStyle = '#443333';
+    ctx.fillRect(100, 80, 20, 16);
+    ctx.fillStyle = '#cc3333';
+    ctx.fillRect(107, 82, 6, 12);
+    ctx.fillRect(103, 86, 14, 4);
+
+    // Flashlight beam (Dr. Reyes searching)
+    const beamAngle = Math.sin(t * 0.3) * 0.3;
+    const beamX = 200 + Math.sin(beamAngle) * 40;
+    ctx.fillStyle = 'rgba(255, 240, 200, 0.06)';
+    ctx.beginPath();
+    ctx.moveTo(200, 120);
+    ctx.lineTo(beamX - 30, 35);
+    ctx.lineTo(beamX + 30, 35);
+    ctx.fill();
+    // Flashlight dot
+    ctx.fillStyle = 'rgba(255, 240, 200, 0.15)';
+    ctx.fillRect(beamX - 5, 40 + Math.abs(beamAngle) * 20, 10, 8);
+
+    // Duffel bags on floor
+    ctx.fillStyle = '#2a3020';
+    ctx.fillRect(50, SH - 30, 25, 12);
+    ctx.fillRect(90, SH - 28, 22, 10);
+
+    // Door (barricaded from inside)
+    ctx.fillStyle = '#253025';
+    ctx.fillRect(SW - 25, 35, 12, 80);
+    // Barricade
+    ctx.fillStyle = '#332a20';
+    ctx.fillRect(SW - 35, 50, 12, 5);
+    ctx.fillRect(SW - 35, 70, 12, 5);
+    ctx.fillRect(SW - 35, 90, 12, 5);
+  },
+
+  // --- OUTSIDE HOSPITAL (Escape — world changed) ---
+  hospital_outside(ctx, t) {
+    // Smoky orange sky
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, 80);
+    skyGrad.addColorStop(0, '#1a0a0a');
+    skyGrad.addColorStop(0.5, '#2a1510');
+    skyGrad.addColorStop(1, '#141015');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, SW, SH);
+
+    // Smoke columns
+    for (let i = 0; i < 4; i++) {
+      const sx = 50 + i * 80;
+      ctx.fillStyle = `rgba(60, 40, 30, ${0.15 + Math.sin(t * 0.2 + i) * 0.05})`;
+      const sway = Math.sin(t * 0.3 + i * 2) * 5;
+      ctx.fillRect(sx + sway, 0, 8 + i * 3, 60);
+    }
+
+    // Hospital building behind you
+    ctx.fillStyle = '#0e0e15';
+    ctx.fillRect(10, 30, 130, 70);
+    // Windows with figures pressing against glass
+    for (let wy = 0; wy < 50; wy += 12) {
+      for (let wx = 0; wx < 110; wx += 18) {
+        ctx.fillStyle = '#151520';
+        ctx.fillRect(18 + wx, 38 + wy, 10, 8);
+        // Figure in window (some windows)
+        if ((wx + wy) % 36 === 0) {
+          ctx.fillStyle = `rgba(60, 50, 50, ${0.4 + Math.sin(t * 0.5 + wx) * 0.2})`;
+          ctx.fillRect(21 + wx, 39 + wy, 4, 6);
+        }
+      }
+    }
+
+    // Ground — parking lot
+    ctx.fillStyle = '#111115';
+    ctx.fillRect(0, 100, SW, SH - 100);
+
+    // Abandoned cars
+    ctx.fillStyle = '#1a1a22';
+    ctx.fillRect(170, 105, 25, 12);
+    ctx.fillRect(220, 110, 22, 10);
+    ctx.fillRect(280, 103, 28, 14);
+    // Open doors
+    ctx.fillStyle = '#151520';
+    ctx.fillRect(193, 102, 8, 14);
+
+    // Distant fire
+    const fireGlow = 0.25 + Math.sin(t * 1.5) * 0.1;
+    ctx.fillStyle = `rgba(200, 100, 30, ${fireGlow})`;
+    ctx.fillRect(260, 40, 30, 30);
+
+    // Helicopter trailing smoke
+    const heliX = ((t * 8) % (SW + 100)) - 50;
+    if (heliX > -50 && heliX < SW + 50) {
+      ctx.fillStyle = '#222';
+      ctx.fillRect(heliX, 20, 15, 6);
+      ctx.fillRect(heliX + 3, 17, 8, 3);
+      ctx.fillRect(heliX - 5, 22, 25, 1);
+      // Smoke trail
+      ctx.fillStyle = 'rgba(40, 40, 40, 0.3)';
+      ctx.fillRect(heliX + 15, 22, 30, 3);
+    }
+  },
+
   // --- HIGHWAY (Travel) ---
   highway(ctx, t) {
     // Sky
