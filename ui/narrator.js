@@ -6,6 +6,9 @@
 import { calculateSuccessChance, convertDCtoTarget, getRollCount } from './dice.js';
 import { isTimerEnabled, getTimerDuration, getSettings } from '../engine/settings.js';
 import { startChoiceTimer, stopChoiceTimer } from './timer.js';
+import { playTypeTick } from '../engine/audio.js';
+
+let typeTickCounter = 0; // Only play tick every Nth character
 
 const CHAR_DELAY = 25;  // ms per character for typewriter
 const LINE_DELAY = 200; // ms pause between lines
@@ -87,6 +90,11 @@ export function typeText(text) {
       if (charIndex < lines[lineIndex].length) {
         currentLine.textContent += lines[lineIndex][charIndex];
         charIndex++;
+        // Play tick sound every 3rd character (not every char — too noisy)
+        typeTickCounter++;
+        if (typeTickCounter % 3 === 0) {
+          try { playTypeTick(); } catch(e) {}
+        }
         setTimeout(tick, CHAR_DELAY);
       } else {
         currentLine = null;

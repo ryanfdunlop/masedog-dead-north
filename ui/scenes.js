@@ -34,7 +34,104 @@ export function setScene(sceneId) {
   sceneTime = 0;
   if (animFrameId) cancelAnimationFrame(animFrameId);
   if (sceneCanvas) sceneCanvas.style.display = 'block';
+
+  // Trigger ambient sounds for this scene
+  playSceneAmbient(sceneId);
+
   renderScene();
+}
+
+let sceneAmbientInterval = null;
+
+function playSceneAmbient(sceneId) {
+  // Clear any previous ambient loop
+  if (sceneAmbientInterval) {
+    clearInterval(sceneAmbientInterval);
+    sceneAmbientInterval = null;
+  }
+
+  // Import audio functions dynamically to avoid circular deps
+  import('../engine/audio.js').then(audio => {
+    const ambientSounds = {
+      hospital_room: () => {
+        // Heart monitor beep every 2 seconds
+        audio.playHeartMonitor(false);
+        sceneAmbientInterval = setInterval(() => {
+          if (currentScene === 'hospital_room') audio.playHeartMonitor(false);
+        }, 6000);
+      },
+      hospital: () => {
+        audio.playHeartMonitor(false);
+        sceneAmbientInterval = setInterval(() => {
+          if (currentScene === 'hospital') audio.playHeartMonitor(false);
+        }, 6000);
+      },
+      hospital_hallway: () => {
+        // Occasional door creak
+        sceneAmbientInterval = setInterval(() => {
+          if (currentScene === 'hospital_hallway' && Math.random() > 0.5) {
+            audio.playDoorCreak();
+          }
+        }, 8000);
+      },
+      forest: () => {
+        // Crickets + occasional owl
+        audio.playCrickets();
+        sceneAmbientInterval = setInterval(() => {
+          if (currentScene !== 'forest') return;
+          if (Math.random() > 0.6) audio.playCrickets();
+          if (Math.random() > 0.8) audio.playOwlHoot();
+        }, 5000);
+      },
+      campfire: () => {
+        // Fire crackle loop
+        audio.playFireCrackle();
+        sceneAmbientInterval = setInterval(() => {
+          if (currentScene === 'campfire') audio.playFireCrackle();
+        }, 3000);
+      },
+      winter: () => {
+        // Wind gusts
+        audio.playWindGust();
+        sceneAmbientInterval = setInterval(() => {
+          if (currentScene === 'winter') audio.playWindGust();
+        }, 6000);
+      },
+      prairie: () => {
+        // Wind + occasional thunder
+        sceneAmbientInterval = setInterval(() => {
+          if (currentScene !== 'prairie') return;
+          if (Math.random() > 0.4) audio.playWindGust();
+          if (Math.random() > 0.85) audio.playThunder();
+        }, 5000);
+      },
+      ruins: () => {
+        // Occasional glass/creak
+        sceneAmbientInterval = setInterval(() => {
+          if (currentScene !== 'ruins') return;
+          if (Math.random() > 0.7) audio.playDoorCreak();
+          if (Math.random() > 0.9) audio.playGlassBreak();
+        }, 7000);
+      },
+      lake: () => {
+        // Wind
+        sceneAmbientInterval = setInterval(() => {
+          if (currentScene === 'lake') audio.playWindGust();
+        }, 8000);
+      },
+      hospital_outside: () => {
+        // Distant sounds
+        sceneAmbientInterval = setInterval(() => {
+          if (currentScene !== 'hospital_outside') return;
+          if (Math.random() > 0.7) audio.playWindGust();
+          if (Math.random() > 0.8) audio.playZombieGroan();
+        }, 6000);
+      },
+    };
+
+    const ambientFn = ambientSounds[sceneId];
+    if (ambientFn) ambientFn();
+  }).catch(() => {});
 }
 
 /**
