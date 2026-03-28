@@ -38,6 +38,19 @@ const NARRATION_SOUNDS = [
 
 let lastTriggeredLine = ''; // Prevent double-triggering same line
 
+/** Check if a line has any sound trigger (without playing) */
+function hasNarrationSound(lineText) {
+  if (!lineText) return false;
+  const lower = lineText.toLowerCase();
+  for (const trigger of NARRATION_SOUNDS) {
+    for (const word of trigger.words) {
+      if (lower.includes(word)) return true;
+    }
+  }
+  return false;
+}
+
+/** Play the matching sound for a line of narration */
 function checkNarrationSounds(lineText) {
   if (!lineText || lineText === lastTriggeredLine) return;
   lastTriggeredLine = lineText;
@@ -97,6 +110,7 @@ export function typeText(text) {
       if (skipRequested) {
         // Show all remaining text immediately
         p.innerHTML = '';
+        let lastSoundLine = null;
         for (const line of lines) {
           if (line === '') {
             p.appendChild(document.createElement('br'));
@@ -105,10 +119,12 @@ export function typeText(text) {
             span.className = 'narration-line';
             span.textContent = line;
             p.appendChild(span);
-            // Trigger sound for the last significant line when skipping
-            checkNarrationSounds(line);
+            // Find the LAST line with a sound trigger (don't play yet)
+            if (hasNarrationSound(line)) lastSoundLine = line;
           }
         }
+        // Play only the most dramatic sound (last triggered line)
+        if (lastSoundLine) checkNarrationSounds(lastSoundLine);
         cleanup();
         return;
       }
