@@ -3,6 +3,8 @@
 // Typewriter text display and choice presentation.
 // ============================================================
 
+import { calculateSuccessChance, convertDCtoTarget, getRollCount } from './dice.js';
+
 const CHAR_DELAY = 25;  // ms per character for typewriter
 const LINE_DELAY = 200; // ms pause between lines
 
@@ -152,9 +154,17 @@ export function showChoices(choices, callback) {
     }
 
     if (choice.skillCheck) {
+      const playerSkills = window._masedog_player_skills || {};
+      const bonus = playerSkills[choice.skillCheck.skill] || 0;
+      const target = convertDCtoTarget(choice.skillCheck.dc);
+      const numRolls = getRollCount(choice.skillCheck.dc);
+      const pct = calculateSuccessChance(bonus, target, numRolls);
+
+      const chanceClass = pct >= 65 ? 'high' : pct >= 40 ? 'medium' : 'low';
+      const rollText = numRolls > 1 ? ` (${numRolls} rolls)` : '';
       const skillTag = document.createElement('span');
-      skillTag.className = 'choice-skill';
-      skillTag.textContent = ` [${choice.skillCheck.skill.toUpperCase()} check]`;
+      skillTag.className = `choice-chance ${chanceClass}`;
+      skillTag.textContent = `${choice.skillCheck.skill.toUpperCase()} — ${pct}%${rollText}`;
       btn.appendChild(skillTag);
     }
 

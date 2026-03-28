@@ -5,8 +5,11 @@ A zombie apocalypse RPG browser game inspired by Oregon Trail. Set in 2031 — A
 
 ## Design Pillars
 - **PG-13 tone**: Scary, thrilling, sad, sometimes anger-inducing. Not gratuitous — emotional weight over gore.
-- **Choices matter**: Every decision has consequences, some immediate, some 20+ turns later (butterfly effect).
-- **~40% win rate**: The game is HARD. Risk is real. Party members die. Resources run out. Not every run should succeed.
+- **Player choices determine success**: Your decisions drive the outcome — not random difficulty spikes. Smart play wins.
+- **No instant death**: Getting downed sets you to 1 HP. Game over only if downed twice without recovering.
+- **Visual dice system**: Two dice the player clicks to roll. Easy = 1 roll, hard = 2-3 rolls. Odds shown before rolling.
+- **Player-directed camp actions**: Choose what to do at camp — scout water, forage food, train skills, rest, scavenge.
+- **Skill progression**: Every dice roll (pass or fail) earns XP. Skills level up through play and training.
 - **Replayable**: Deep randomization engine means every playthrough feels different without AI API calls.
 - **Dramatic writing**: Narration should read like a novel. Build tension, create attachment to characters, make losses hurt.
 

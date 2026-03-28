@@ -123,13 +123,13 @@ export function applyWeatherEffects() {
   const messages = [];
 
   if (state.weather.temperature < -25 && !state.flags.has_shelter) {
-    dispatch('UPDATE_PLAYER_HEALTH', -10);
-    messages.push('The extreme cold saps your strength.');
+    dispatch('UPDATE_PLAYER_HEALTH', -5);
+    messages.push('The extreme cold saps your strength. Find shelter soon.');
     for (const member of state.party.filter(c => c.isAlive)) {
-      dispatch('UPDATE_CHARACTER', { id: member.id, changes: { health: -10 } });
+      dispatch('UPDATE_CHARACTER', { id: member.id, changes: { health: -5 } });
     }
   } else if (state.weather.temperature < -10 && !state.flags.has_shelter) {
-    dispatch('UPDATE_PLAYER_HEALTH', -5);
+    dispatch('UPDATE_PLAYER_HEALTH', -3);
     messages.push('The cold bites at exposed skin.');
   }
 

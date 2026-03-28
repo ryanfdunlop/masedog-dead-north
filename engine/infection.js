@@ -37,7 +37,7 @@ export function tickInfections() {
         if (char.infectionTimer <= 0) {
           // Time's up for treatment — progresses to INFECTED
           char.infectionState = INFECTION.INFECTED;
-          char.infectionTimer = 3; // 3 turns until turning
+          char.infectionTimer = 5; // 5 turns until turning (was 3)
           messages.push(`${char.name}'s bite has become infected. The veins around the wound are turning black.`);
         } else {
           messages.push(`${char.name}'s bite wound festers. ${char.infectionTimer} week(s) to treat it before it's too late.`);
@@ -97,10 +97,10 @@ export function treatBite(characterId) {
 
   dispatch('UPDATE_RESOURCES', { medicine: -1 });
 
-  // 50% base chance, +10% if party has a doctor
-  let cureChance = 50;
+  // 65% base chance, +15% if party has a doctor (was 50/+20)
+  let cureChance = 65;
   const hasDoctor = state.party.some(c => c.isAlive && c.skills.medical >= 7);
-  if (hasDoctor) cureChance += 20;
+  if (hasDoctor) cureChance += 15;
 
   if (chance(rng, cureChance)) {
     char.infectionState = INFECTION.HEALTHY;

@@ -13,6 +13,8 @@ import { renderMap } from './map.js';
 import { renderInventory } from './inventory.js';
 import { renderPartyPortraits, getPortraitDataURL } from './portraits.js';
 import { saveGame, loadGame, getSaveSlots, hasSaves, autosave } from '../engine/save.js';
+import { getAvailableActions, resolveAction, getActionDiceParams } from '../engine/actions.js';
+import { calculateSuccessChance, convertDCtoTarget, getRollCount, rollDice } from './dice.js';
 
 let screens = {};
 let hudEl = null;
@@ -125,6 +127,7 @@ function setupCampScreen(data) {
 
     <div class="camp-tabs">
       <button class="camp-tab active" data-tab="status">STATUS</button>
+      <button class="camp-tab" data-tab="actions">ACTIONS</button>
       <button class="camp-tab" data-tab="party">PARTY</button>
       <button class="camp-tab" data-tab="map">MAP</button>
       <button class="camp-tab" data-tab="save">SAVE</button>
@@ -161,6 +164,7 @@ function setupCampScreen(data) {
       </div>
     </div>
 
+    <div class="camp-tab-content hidden" id="tab-actions"></div>
     <div class="camp-tab-content hidden" id="tab-party"></div>
     <div class="camp-tab-content hidden" id="tab-map"></div>
     <div class="camp-tab-content hidden" id="tab-save"></div>
@@ -178,7 +182,9 @@ function setupCampScreen(data) {
       if (target) target.classList.remove('hidden');
 
       // Lazy render tab content
-      if (tab.dataset.tab === 'party') {
+      if (tab.dataset.tab === 'actions') {
+        renderActionsTab(document.getElementById('tab-actions'), data);
+      } else if (tab.dataset.tab === 'party') {
         renderInventory(document.getElementById('tab-party'));
       } else if (tab.dataset.tab === 'map') {
         renderMap(document.getElementById('tab-map'));
@@ -194,6 +200,144 @@ function setupCampScreen(data) {
       if (data.onContinue) data.onContinue();
     };
   }
+}
+
+function renderActionsTab(container, campData) {
+  const state = getState();
+  const actions = getAvailableActions();
+
+  let html = `
+    <div class="camp-section">
+      <h3>WHAT DO YOU WANT TO DO?</h3>
+      <p style="color: var(--text-dim); font-size: 14px; margin-bottom: 12px;">Choose one action before continuing your journey. Each action uses a dice roll to determine the outcome.</p>
+      <div class="camp-actions-grid">
+  `;
+
+  for (const action of actions) {
+    const diceParams = getActionDiceParams(action.id);
+    let chanceText = '';
+    if (diceParams) {
+      const bonus = state.player.skills[diceParams.skill] || 0;
+      const target = convertDCtoTarget(diceParams.dc);
+      const numRolls = getRollCount(diceParams.dc);
+      const chance = calculateSuccessChance(bonus, target, numRolls);
+      const chanceClass = chance >= 65 ? 'high' : chance >= 40 ? 'medium' : 'low';
+      chanceText = `<div class="camp-action-chance ${chanceClass}">${chance}% chance</div>`;
+    }
+
+    html += `
+      <button class="camp-action-btn" data-action="${action.id}">
+        <div class="camp-action-icon">${action.icon}</div>
+        <div class="camp-action-name">${action.name}</div>
+        <div class="camp-action-desc">${action.description}</div>
+        <div class="camp-action-detail">${action.detail}</div>
+        ${action.skill ? `<div class="camp-action-skill">${action.skill.toUpperCase()} skill</div>` : ''}
+        ${chanceText}
+      </button>
+    `;
+  }
+
+  html += `</div></div>`;
+  container.innerHTML = html;
+
+  // Wire up action buttons
+  container.querySelectorAll('.camp-action-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const actionId = btn.dataset.action;
+
+      if (actionId === 'train_skill') {
+        // Show skill picker
+        showSkillPicker(container, campData);
+        return;
+      }
+
+      if (actionId === 'rest_recover') {
+        // No dice needed — resolve directly
+        const result = resolveAction(actionId, {});
+        showActionResult(container, result.messages, campData);
+        return;
+      }
+
+      // Roll dice for this action
+      const diceParams = getActionDiceParams(actionId);
+      if (diceParams) {
+        const state = getState();
+        const bonus = state.player.skills[diceParams.skill] || 0;
+        const target = convertDCtoTarget(diceParams.dc);
+        const numRolls = getRollCount(diceParams.dc);
+
+        const diceResult = await rollDice({
+          skill: diceParams.skill,
+          bonus,
+          target,
+          rolls: numRolls,
+          label: `${actions.find(a => a.id === actionId)?.name || actionId}`,
+        });
+
+        const result = resolveAction(actionId, diceResult);
+
+        // Award skill XP
+        if (result.skillXP) {
+          for (const [skill, xp] of Object.entries(result.skillXP)) {
+            const { dispatch } = await import('../engine/state.js');
+            dispatch('ADD_SKILL_XP', { characterId: 'masedog', skill, xp });
+          }
+        }
+
+        showActionResult(container, result.messages, campData);
+      }
+    });
+  });
+}
+
+function showSkillPicker(container, campData) {
+  const skills = ['combat', 'athletics', 'perception', 'medical', 'mechanics', 'charisma', 'stealth', 'survival'];
+  const state = getState();
+
+  let html = `
+    <div class="camp-section">
+      <h3>CHOOSE A SKILL TO TRAIN</h3>
+      <div class="skill-train-picker">
+  `;
+
+  for (const skill of skills) {
+    const level = state.player.skills[skill] || 0;
+    const xp = state.player.skillXP?.[skill] || 0;
+    const threshold = level * 3;
+    html += `<button class="skill-train-btn" data-skill="${skill}">${skill} (${level})<br><span style="font-size:5px; color:#666">${xp}/${threshold} XP</span></button>`;
+  }
+
+  html += `</div></div>`;
+  container.innerHTML = html;
+
+  container.querySelectorAll('.skill-train-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const skill = btn.dataset.skill;
+      const result = resolveAction('train_skill', { trainSkill: skill });
+
+      const { dispatch } = await import('../engine/state.js');
+      dispatch('ADD_SKILL_XP', { characterId: 'masedog', skill, xp: 3 });
+
+      showActionResult(container, result.messages, campData);
+    });
+  });
+}
+
+function showActionResult(container, messages, campData) {
+  let html = `<div class="camp-section"><h3>RESULT</h3>`;
+  for (const msg of messages) {
+    html += `<div style="color: var(--accent-orange); margin-bottom: 4px;">${msg}</div>`;
+  }
+  html += `<button class="btn-continue" id="btn-action-done" style="margin-top: 16px;">CONTINUE JOURNEY</button>`;
+  html += `</div>`;
+  container.innerHTML = html;
+
+  // Update HUD
+  updateHUD();
+
+  document.getElementById('btn-action-done').addEventListener('click', () => {
+    if (campData.onContinue) campData.onContinue();
+  });
 }
 
 function renderSaveTab(container) {

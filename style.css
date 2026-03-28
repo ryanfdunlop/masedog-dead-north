@@ -957,6 +957,209 @@ body.region-ottawa {
   border: 1px solid #333;
 }
 
+/* === DICE SYSTEM === */
+.dice-container {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 300;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+#dice-canvas {
+  image-rendering: auto; /* Smooth for dice */
+  border: 1px solid #333;
+  border-radius: 8px;
+  max-width: 90vw;
+}
+
+.dice-info {
+  text-align: center;
+  color: var(--text-dim);
+  font-family: var(--font-body);
+  font-size: 16px;
+}
+
+.dice-label {
+  font-family: var(--font-pixel);
+  font-size: 12px;
+  color: var(--accent-yellow);
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+
+.dice-target { color: var(--text-primary); font-size: 18px; }
+.dice-bonus { color: var(--accent-blue); font-size: 16px; }
+.dice-rolls-left { color: var(--text-dim); font-size: 14px; margin-top: 4px; }
+
+.dice-result-display {
+  text-align: center;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dice-roll-value {
+  font-family: var(--font-pixel);
+  font-size: 20px;
+  color: var(--accent-yellow);
+}
+
+.dice-final {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.dice-total {
+  font-family: var(--font-pixel);
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.dice-outcome {
+  font-family: var(--font-pixel);
+  font-size: 22px;
+  animation: resultPop 0.3s ease-out;
+}
+
+.dice-outcome.success { color: var(--accent-green); text-shadow: 0 0 20px rgba(51, 170, 68, 0.6); }
+.dice-outcome.failure { color: var(--accent-red); text-shadow: 0 0 20px rgba(204, 51, 51, 0.6); }
+.dice-vs { color: var(--text-dim); font-size: 14px; }
+
+.dice-roll-btn {
+  font-family: var(--font-pixel);
+  font-size: 14px;
+  padding: 16px 40px;
+  background: var(--accent-yellow);
+  color: #000;
+  border: none;
+  cursor: pointer;
+  letter-spacing: 2px;
+  transition: all 0.2s;
+  animation: pulse 1.5s infinite;
+}
+
+.dice-roll-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 30px rgba(204, 170, 34, 0.5);
+}
+
+/* === CAMP ACTIONS === */
+.camp-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.camp-action-btn {
+  background: var(--bg-panel);
+  border: 1px solid #2a2a35;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  font-family: var(--font-body);
+  color: var(--text-primary);
+}
+
+.camp-action-btn:hover {
+  border-color: var(--accent-blue);
+  background: #1e1e2a;
+  transform: translateY(-1px);
+}
+
+.camp-action-icon {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+.camp-action-name {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--accent-yellow);
+  margin-bottom: 4px;
+}
+
+.camp-action-desc {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.camp-action-detail {
+  font-size: 12px;
+  color: #444;
+  font-style: italic;
+}
+
+.camp-action-skill {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  color: var(--accent-blue);
+  margin-top: 4px;
+}
+
+.camp-action-chance {
+  font-size: 12px;
+  color: var(--accent-green);
+  margin-top: 2px;
+}
+
+/* Skill training picker */
+.skill-train-picker {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.skill-train-btn {
+  font-family: var(--font-pixel);
+  font-size: 7px;
+  padding: 8px 4px;
+  background: var(--bg-panel);
+  border: 1px solid #2a2a35;
+  color: var(--text-dim);
+  cursor: pointer;
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.skill-train-btn:hover {
+  border-color: var(--accent-blue);
+  color: var(--text-primary);
+}
+
+/* Choice probability display */
+.choice-chance {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  margin-left: auto;
+  padding: 2px 6px;
+}
+
+.choice-chance.high { color: var(--accent-green); }
+.choice-chance.medium { color: var(--accent-yellow); }
+.choice-chance.low { color: var(--accent-red); }
+
+/* Downed indicator */
+.downed-indicator {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  color: var(--accent-red);
+  background: rgba(204, 51, 51, 0.15);
+  padding: 2px 8px;
+  animation: pulse 1s infinite;
+}
+
 /* === MINI-GAMES === */
 .minigame-container {
   position: fixed;

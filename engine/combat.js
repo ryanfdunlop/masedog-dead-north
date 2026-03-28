@@ -59,35 +59,42 @@ export function resolveCombat(config) {
 
     if (zombiesRemaining <= 0) break;
 
-    // Zombies attack
+    // Zombies attack (damage capped per round)
+    let playerDmgThisRound = 0;
+    const PLAYER_DMG_CAP = 25;
+    const MEMBER_DMG_CAP = 20;
+
     for (let i = 0; i < Math.min(zombiesRemaining, fighters.length); i++) {
       const target = fighters[i];
       const dodgeCheck = skillCheck(rng, target.skills.athletics, zombieStats.attack);
 
       if (!dodgeCheck.success) {
-        const damage = range(rng, zombieStats.minDamage, zombieStats.maxDamage);
+        let damage = range(rng, zombieStats.minDamage, zombieStats.maxDamage);
 
+        // Cap damage per round
         if (target.isPlayer) {
+          damage = Math.min(damage, PLAYER_DMG_CAP - playerDmgThisRound);
+          if (damage <= 0) continue;
+          playerDmgThisRound += damage;
           dispatch('UPDATE_PLAYER_HEALTH', -damage);
           messages.push(`A ${zombieStats.name} strikes you for ${damage} damage!`);
         } else {
+          damage = Math.min(damage, MEMBER_DMG_CAP);
           dispatch('UPDATE_CHARACTER', { id: target.id, changes: { health: -damage } });
           messages.push(`${target.name} takes ${damage} damage from a ${zombieStats.name}!`);
         }
 
-        // Bite chance
-        if (chance(rng, zombieStats.biteChance)) {
+        // Bite chance (reduced by 40%)
+        const reducedBiteChance = Math.round(zombieStats.biteChance * 0.6);
+        if (chance(rng, reducedBiteChance)) {
           dispatch('INFECT_CHARACTER', target.id);
           messages.push(`${target.name} has been BITTEN!`);
         }
 
-        // Check for death
+        // Check casualties (player uses downed system, won't die outright)
         const currentHealth = target.isPlayer ? state.player.health : target.health;
-        if (currentHealth <= 0) {
+        if (currentHealth <= 0 && !target.isPlayer) {
           casualties.push(target.name);
-          if (target.isPlayer) {
-            return { outcome: 'defeat', messages, casualties, loot: [] };
-          }
         }
       }
     }
@@ -123,9 +130,11 @@ export function resolveCombat(config) {
     return { outcome: 'flee', messages, casualties, loot: [] };
   }
 
-  messages.push(`Overwhelmed. There's no escape.`);
-  dispatch('GAME_OVER', 'Overrun by the horde.');
-  return { outcome: 'defeat', messages, casualties, loot: [] };
+  // Overwhelmed — heavy damage but not instant death
+  messages.push(`Overwhelmed! You take heavy damage fighting your way out.`);
+  dispatch('UPDATE_PLAYER_HEALTH', -25);
+  dispatch('UPDATE_PLAYER_MORALE', -15);
+  return { outcome: 'flee', messages, casualties, loot: [] };
 }
 
 function getZombieStats(type) {

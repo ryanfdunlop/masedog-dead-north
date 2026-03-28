@@ -156,6 +156,12 @@ export function createCharacter(id, name, age, skills, traits, isPlayer = false)
     isPlayer,
     joinedTurn: 0,
     equipment: { weapon: null, armor: null, accessory: null },
+    downed: false,
+    downedCount: 0,
+    skillXP: {
+      combat: 0, athletics: 0, perception: 0, medical: 0,
+      mechanics: 0, charisma: 0, stealth: 0, survival: 0,
+    },
   };
 }
 
@@ -231,9 +237,28 @@ export function dispatch(action, payload) {
     case 'UPDATE_PLAYER_HEALTH':
       gameState.player.health = Math.max(0, Math.min(100, gameState.player.health + payload));
       if (gameState.player.health <= 0) {
-        gameState.player.isAlive = false;
-        gameState.meta.gameOver = true;
-        gameState.meta.gameOverReason = 'MASEDOG has fallen.';
+        // DOWNED system — don't die immediately
+        if (gameState.player.downed) {
+          // Downed twice = game over
+          gameState.player.downedCount++;
+          if (gameState.player.downedCount >= 2) {
+            gameState.player.isAlive = false;
+            gameState.meta.gameOver = true;
+            gameState.meta.gameOverReason = 'MASEDOG couldn\'t get back up. The Dead North claims another soul.';
+          } else {
+            gameState.player.health = 1;
+          }
+        } else {
+          // First time downed — survive at 1 HP
+          gameState.player.health = 1;
+          gameState.player.downed = true;
+          gameState.player.downedCount++;
+          gameState.player.morale = Math.max(0, gameState.player.morale - 20);
+        }
+      }
+      // Recover from downed when health > 25
+      if (gameState.player.health > 25 && gameState.player.downed) {
+        gameState.player.downed = false;
       }
       break;
 
@@ -300,6 +325,23 @@ export function dispatch(action, payload) {
       gameState.currentSegmentIndex++;
       break;
 
+    case 'ADD_SKILL_XP': {
+      // payload: { characterId, skill, xp }
+      const xpChar = payload.characterId === 'masedog'
+        ? gameState.player
+        : gameState.party.find(c => c.id === payload.characterId);
+      if (xpChar && xpChar.skillXP && xpChar.skills[payload.skill] !== undefined) {
+        xpChar.skillXP[payload.skill] = (xpChar.skillXP[payload.skill] || 0) + payload.xp;
+        // Level up check: threshold = currentLevel * 3
+        const threshold = xpChar.skills[payload.skill] * 3;
+        if (xpChar.skillXP[payload.skill] >= threshold && xpChar.skills[payload.skill] < 10) {
+          xpChar.skills[payload.skill]++;
+          xpChar.skillXP[payload.skill] = 0;
+        }
+      }
+      break;
+    }
+
     case 'UPDATE_PRESSURE':
       gameState.pressure = Math.max(0, Math.min(100, gameState.pressure + payload));
       break;
@@ -332,7 +374,7 @@ export function dispatch(action, payload) {
           addHistory(`${target.name} was bitten but seems to be fighting it off...`);
         } else {
           target.infectionState = INFECTION.BITTEN;
-          target.infectionTimer = 3; // 3 turns to treat
+          target.infectionTimer = 5; // 5 turns to treat (was 3)
           addHistory(`${target.name} has been bitten!`);
         }
       }

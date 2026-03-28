@@ -45,6 +45,8 @@ import { ZombieEscape } from '../minigames/zombie-escape.js';
 import { Scavenge } from '../minigames/scavenge.js';
 import { Hunting } from '../minigames/hunting.js';
 import { RiverCrossing } from '../minigames/river-crossing.js';
+import { initDice, rollDice, calculateSuccessChance, convertDCtoTarget, getRollCount } from '../ui/dice.js';
+import { getAvailableActions, resolveAction, getActionDiceParams } from './actions.js';
 
 // Register all events
 registerEvents(COMBAT_EVENTS);
@@ -82,11 +84,15 @@ export function startNewGame(seed) {
   initTransitions();
   initEffects();
   initAudio();
+  initDice();
   resumeAudio();
   newGame(seed);
   initStartingParty();
   setLocationTheme('vancouver');
   startAmbience('tension'); // Start with tense hospital ambience
+  // Expose player skills for narrator probability display
+  window._masedog_player_skills = getState().player.skills;
+
   dispatch('SET_PHASE', PHASE.PROLOGUE);
   prologuePhase = 'intro';
   fadeTransition(600).then(() => runPrologue());
@@ -339,31 +345,38 @@ async function runEvent(event) {
     dispatch('SET_PHASE', PHASE.RESOLUTION);
     const messages = [];
 
-    // Handle skill check
+    // Handle skill check with VISUAL DICE
     if (choice.skillCheck) {
       const state = getState();
-      const rng = getRNG();
       const { skill, dc } = choice.skillCheck;
       const modifier = state.player.skills[skill] || 0;
-      const { skillCheck: doCheck } = await import('./random.js');
-      const result = doCheck(rng, modifier, dc);
+      const target = convertDCtoTarget(dc);
+      const numRolls = getRollCount(dc);
 
-      messages.push(`[${skill.toUpperCase()} check: rolled ${result.roll} + ${modifier} = ${result.total} vs DC ${dc}]`);
+      // Roll the visual dice!
+      const result = await rollDice({
+        skill,
+        bonus: modifier,
+        target,
+        rolls: numRolls,
+        label: `${skill.toUpperCase()} CHECK`,
+      });
+
+      messages.push(`[${skill.toUpperCase()}: ${result.rolls.join(' + ')} + ${modifier} = ${result.total} vs ${target}]`);
 
       if (result.critSuccess) {
-        messages.push('CRITICAL SUCCESS!');
+        messages.push('DOUBLE SIXES! CRITICAL SUCCESS!');
       } else if (result.critFail) {
-        messages.push('CRITICAL FAILURE!');
+        messages.push('SNAKE EYES! CRITICAL FAILURE!');
       }
+
+      // Award skill XP (success = 2, failure = 1)
+      dispatch('ADD_SKILL_XP', { characterId: 'masedog', skill, xp: result.success ? 2 : 1 });
 
       if (result.success || result.critSuccess) {
         playSuccess();
         if (choice.successText) messages.push(choice.successText);
         if (choice.successEffects) applyEffects(choice.successEffects);
-
-        // Skill growth on success
-        const growthMsg = trySkillGrowth('masedog', skill);
-        if (growthMsg) messages.push(growthMsg);
 
         // Handle combat on success path
         if (choice.combat && !choice.failureCombat) {

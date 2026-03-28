@@ -24,14 +24,15 @@ export function tickResources() {
   if (state.resources.food >= foodCost) {
     dispatch('UPDATE_RESOURCES', { food: -foodCost });
   } else {
-    // Not enough food — starvation
+    // Not enough food — starvation (softened: -3 per deficit, max -15)
     const deficit = foodCost - state.resources.food;
     dispatch('SET_RESOURCES', { food: 0 });
     messages.push(`Not enough food! The group goes hungry.`);
-    dispatch('UPDATE_PLAYER_HEALTH', -5 * deficit);
-    dispatch('UPDATE_PLAYER_MORALE', -8);
+    const foodDmg = Math.min(15, 3 * deficit);
+    dispatch('UPDATE_PLAYER_HEALTH', -foodDmg);
+    dispatch('UPDATE_PLAYER_MORALE', -5);
     for (const member of getLivingParty()) {
-      dispatch('UPDATE_CHARACTER', { id: member.id, changes: { health: -5 * deficit, morale: -8 } });
+      dispatch('UPDATE_CHARACTER', { id: member.id, changes: { health: -foodDmg, morale: -5 } });
     }
   }
 
@@ -44,10 +45,11 @@ export function tickResources() {
     const deficit = waterCost - state.resources.water;
     dispatch('SET_RESOURCES', { water: 0 });
     messages.push(`Running low on water! Dehydration sets in.`);
-    dispatch('UPDATE_PLAYER_HEALTH', -7 * deficit);
-    dispatch('UPDATE_PLAYER_MORALE', -10);
+    const waterDmg = Math.min(15, 4 * deficit);
+    dispatch('UPDATE_PLAYER_HEALTH', -waterDmg);
+    dispatch('UPDATE_PLAYER_MORALE', -6);
     for (const member of getLivingParty()) {
-      dispatch('UPDATE_CHARACTER', { id: member.id, changes: { health: -7 * deficit, morale: -10 } });
+      dispatch('UPDATE_CHARACTER', { id: member.id, changes: { health: -waterDmg, morale: -6 } });
     }
   }
 
