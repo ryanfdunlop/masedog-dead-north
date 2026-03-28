@@ -1,509 +1,528 @@
 // ============================================================
-// MASEDOG: Dead North — Audio Engine
-// Procedural sound effects and ambient music using Web Audio API.
-// No external audio files needed — everything is synthesized.
+// MASEDOG: Dead North — Enhanced Audio Engine
+// Procedural sound effects + spatial panning + ambient layers.
+// Ready for real audio files via Howler.js when available.
 // ============================================================
 
-let audioCtx = null;
+let ctx = null;
 let masterGain = null;
 let musicGain = null;
 let sfxGain = null;
+let initialized = false;
 let currentAmbience = null;
 let ambienceNodes = [];
-let initialized = false;
 
-// Volume settings
-let masterVolume = 0.5;
-let musicVolume = 0.3;
-let sfxVolume = 0.6;
+// ========== INITIALIZATION ==========
 
-/**
- * Initialize the audio context. Must be called after user interaction.
- */
 export function initAudio() {
   if (initialized) return;
   try {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    masterGain = audioCtx.createGain();
-    masterGain.gain.value = masterVolume;
-    masterGain.connect(audioCtx.destination);
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = ctx.createGain();
+    masterGain.gain.value = 0.5;
+    masterGain.connect(ctx.destination);
 
-    musicGain = audioCtx.createGain();
-    musicGain.gain.value = musicVolume;
+    musicGain = ctx.createGain();
+    musicGain.gain.value = 0.3;
     musicGain.connect(masterGain);
 
-    sfxGain = audioCtx.createGain();
-    sfxGain.gain.value = sfxVolume;
+    sfxGain = ctx.createGain();
+    sfxGain.gain.value = 0.6;
     sfxGain.connect(masterGain);
 
     initialized = true;
   } catch (e) {
-    console.warn('Web Audio API not supported:', e);
+    console.warn('Web Audio not available:', e);
   }
 }
 
-/**
- * Resume audio context (needed after user gesture on mobile).
- */
 export function resumeAudio() {
-  if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
+  if (ctx?.state === 'suspended') ctx.resume();
 }
 
-/**
- * Set volume levels (0-1).
- */
 export function setVolume(master, music, sfx) {
-  if (master !== undefined) { masterVolume = master; if (masterGain) masterGain.gain.value = master; }
-  if (music !== undefined) { musicVolume = music; if (musicGain) musicGain.gain.value = music; }
-  if (sfx !== undefined) { sfxVolume = sfx; if (sfxGain) sfxGain.gain.value = sfx; }
+  if (master !== undefined && masterGain) masterGain.gain.value = Math.max(0, Math.min(1, master));
+  if (music !== undefined && musicGain) musicGain.gain.value = Math.max(0, Math.min(1, music));
+  if (sfx !== undefined && sfxGain) sfxGain.gain.value = Math.max(0, Math.min(1, sfx));
+}
+
+// ========== HELPERS ==========
+
+function now() { return ctx ? ctx.currentTime : 0; }
+
+function noise(duration) {
+  if (!ctx) return null;
+  const len = ctx.sampleRate * duration;
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  return src;
+}
+
+function noiseLoop(duration = 2) {
+  const src = noise(duration);
+  if (src) src.loop = true;
+  return src;
+}
+
+function osc(type, freq) {
+  if (!ctx) return null;
+  const o = ctx.createOscillator();
+  o.type = type;
+  o.frequency.value = freq;
+  return o;
+}
+
+function gain(val = 1) {
+  if (!ctx) return null;
+  const g = ctx.createGain();
+  g.gain.value = val;
+  return g;
+}
+
+function filter(type, freq, q = 1) {
+  if (!ctx) return null;
+  const f = ctx.createBiquadFilter();
+  f.type = type;
+  f.frequency.value = freq;
+  f.Q.value = q;
+  return f;
+}
+
+/** Create a stereo panner. -1 = left, 0 = center, +1 = right */
+function panner(pan = 0) {
+  if (!ctx) return null;
+  const p = ctx.createStereoPanner();
+  p.pan.value = pan;
+  return p;
+}
+
+function play(src, chain, start = 0, stop = null) {
+  if (!src || !ctx) return;
+  let node = src;
+  for (const c of chain) { if (c) { node.connect(c); node = c; } }
+  node.connect(sfxGain);
+  src.start(now() + start);
+  if (stop) src.stop(now() + stop);
 }
 
 // ========== SOUND EFFECTS ==========
 
-/**
- * Play a gunshot sound.
- */
 export function playShotgun() {
-  if (!audioCtx) return;
-  const now = audioCtx.currentTime;
-
-  // Noise burst for the bang
-  const noise = createNoise(0.15);
-  const noiseGain = audioCtx.createGain();
-  noiseGain.gain.setValueAtTime(0.4, now);
-  noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-
-  const filter = audioCtx.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.setValueAtTime(3000, now);
-  filter.frequency.exponentialRampToValueAtTime(200, now + 0.15);
-
-  noise.connect(filter);
-  filter.connect(noiseGain);
-  noiseGain.connect(sfxGain);
-  noise.start(now);
-  noise.stop(now + 0.15);
-
-  // Low thump
-  const osc = audioCtx.createOscillator();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(150, now);
-  osc.frequency.exponentialRampToValueAtTime(30, now + 0.1);
-  const oscGain = audioCtx.createGain();
-  oscGain.gain.setValueAtTime(0.5, now);
-  oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-  osc.connect(oscGain);
-  oscGain.connect(sfxGain);
-  osc.start(now);
-  osc.stop(now + 0.1);
+  if (!ctx) return;
+  const t = now();
+  // Noise burst
+  const n = noise(0.2);
+  const ng = gain(0.35);
+  ng.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+  const nf = filter('lowpass', 2500);
+  nf.frequency.exponentialRampToValueAtTime(200, t + 0.2);
+  play(n, [nf, ng], 0, 0.2);
+  // Low boom
+  const o = osc('sine', 120);
+  const og = gain(0.4);
+  og.gain.exponentialRampToValueAtTime(0.01, t + 0.12);
+  o.frequency.exponentialRampToValueAtTime(30, t + 0.12);
+  play(o, [og], 0, 0.12);
+  // Click
+  const c = osc('square', 3000);
+  const cg = gain(0.08);
+  cg.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+  play(c, [cg], 0, 0.03);
 }
 
-/**
- * Play a pistol shot (lighter than shotgun).
- */
 export function playPistol() {
-  if (!audioCtx) return;
-  const now = audioCtx.currentTime;
-
-  const noise = createNoise(0.08);
-  const gain = audioCtx.createGain();
-  gain.gain.setValueAtTime(0.25, now);
-  gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
-
-  const filter = audioCtx.createBiquadFilter();
-  filter.type = 'highpass';
-  filter.frequency.value = 1000;
-
-  noise.connect(filter);
-  filter.connect(gain);
-  gain.connect(sfxGain);
-  noise.start(now);
-  noise.stop(now + 0.08);
+  if (!ctx) return;
+  const t = now();
+  const n = noise(0.1);
+  const ng = gain(0.2);
+  ng.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+  const nf = filter('highpass', 800);
+  play(n, [nf, ng], 0, 0.1);
+  const o = osc('sine', 200);
+  const og = gain(0.15);
+  og.gain.exponentialRampToValueAtTime(0.01, t + 0.06);
+  play(o, [og], 0, 0.06);
 }
 
-/**
- * Play a zombie groan.
- */
 export function playZombieGroan() {
-  if (!audioCtx) return;
-  const now = audioCtx.currentTime;
-  const baseFreq = 80 + Math.random() * 40;
+  if (!ctx) return;
+  const t = now();
+  const base = 70 + Math.random() * 40;
+  const duration = 0.8 + Math.random() * 0.5;
+  const pan = (Math.random() - 0.5) * 1.6; // Random left/right
 
-  const osc = audioCtx.createOscillator();
-  osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(baseFreq, now);
-  osc.frequency.linearRampToValueAtTime(baseFreq * 0.7, now + 0.8);
-
-  const gain = audioCtx.createGain();
-  gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(0.12, now + 0.1);
-  gain.gain.linearRampToValueAtTime(0.08, now + 0.5);
-  gain.gain.linearRampToValueAtTime(0, now + 0.9);
-
-  const filter = audioCtx.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.value = 400;
-  filter.Q.value = 2;
-
-  osc.connect(filter);
-  filter.connect(gain);
-  gain.connect(sfxGain);
-  osc.start(now);
-  osc.stop(now + 0.9);
+  const o = osc('sawtooth', base);
+  o.frequency.linearRampToValueAtTime(base * 0.65, t + duration);
+  const g1 = gain(0);
+  g1.gain.linearRampToValueAtTime(0.1, t + 0.1);
+  g1.gain.linearRampToValueAtTime(0.07, t + duration * 0.6);
+  g1.gain.linearRampToValueAtTime(0, t + duration);
+  const f1 = filter('lowpass', 350, 3);
+  // Wobble the filter for organic feel
+  const lfo = osc('sine', 3 + Math.random() * 4);
+  const lfoG = gain(30);
+  lfo.connect(lfoG);
+  lfoG.connect(f1.frequency);
+  lfo.start(t);
+  lfo.stop(t + duration);
+  const p = panner(pan);
+  play(o, [f1, g1, p], 0, duration);
 }
 
-/**
- * Play a door/barricade slam.
- */
+export function playScreamerShriek() {
+  if (!ctx) return;
+  const t = now();
+  const o = osc('sawtooth', 700);
+  o.frequency.linearRampToValueAtTime(2200, t + 0.15);
+  o.frequency.linearRampToValueAtTime(1800, t + 0.6);
+  o.frequency.linearRampToValueAtTime(1200, t + 0.9);
+  const g1 = gain(0);
+  g1.gain.linearRampToValueAtTime(0.18, t + 0.05);
+  g1.gain.linearRampToValueAtTime(0.12, t + 0.5);
+  g1.gain.linearRampToValueAtTime(0, t + 0.9);
+  const f1 = filter('bandpass', 1400, 4);
+  play(o, [f1, g1], 0, 0.9);
+  // High overtone
+  const o2 = osc('square', 1400);
+  o2.frequency.linearRampToValueAtTime(3000, t + 0.2);
+  const g2 = gain(0.04);
+  g2.gain.linearRampToValueAtTime(0, t + 0.5);
+  play(o2, [g2], 0, 0.5);
+}
+
 export function playSlam() {
-  if (!audioCtx) return;
-  const now = audioCtx.currentTime;
-
-  const noise = createNoise(0.1);
-  const gain = audioCtx.createGain();
-  gain.gain.setValueAtTime(0.35, now);
-  gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-
-  const filter = audioCtx.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.value = 500;
-
-  noise.connect(filter);
-  filter.connect(gain);
-  gain.connect(sfxGain);
-  noise.start(now);
-  noise.stop(now + 0.1);
+  if (!ctx) return;
+  const t = now();
+  const n = noise(0.12);
+  const ng = gain(0.3);
+  ng.gain.exponentialRampToValueAtTime(0.01, t + 0.12);
+  const nf = filter('lowpass', 400);
+  play(n, [nf, ng], 0, 0.12);
 }
 
-/**
- * Play a UI click/select sound.
- */
 export function playUIClick() {
-  if (!audioCtx) return;
-  const now = audioCtx.currentTime;
-
-  const osc = audioCtx.createOscillator();
-  osc.type = 'square';
-  osc.frequency.setValueAtTime(800, now);
-  osc.frequency.setValueAtTime(1000, now + 0.03);
-
-  const gain = audioCtx.createGain();
-  gain.gain.setValueAtTime(0.08, now);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-
-  osc.connect(gain);
-  gain.connect(sfxGain);
-  osc.start(now);
-  osc.stop(now + 0.06);
+  if (!ctx) return;
+  const t = now();
+  const o = osc('square', 800);
+  o.frequency.setValueAtTime(1100, t + 0.02);
+  const g1 = gain(0.06);
+  g1.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+  play(o, [g1], 0, 0.05);
 }
 
-/**
- * Play a positive chime (success, loot found).
- */
 export function playSuccess() {
-  if (!audioCtx) return;
-  const now = audioCtx.currentTime;
-
+  if (!ctx) return;
+  const t = now();
   [523, 659, 784].forEach((freq, i) => {
-    const osc = audioCtx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.value = freq;
-    const gain = audioCtx.createGain();
-    gain.gain.setValueAtTime(0, now + i * 0.1);
-    gain.gain.linearRampToValueAtTime(0.12, now + i * 0.1 + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.3);
-    osc.connect(gain);
-    gain.connect(sfxGain);
-    osc.start(now + i * 0.1);
-    osc.stop(now + i * 0.1 + 0.3);
+    const o = osc('sine', freq);
+    const g1 = gain(0);
+    g1.gain.linearRampToValueAtTime(0.1, t + i * 0.1 + 0.02);
+    g1.gain.exponentialRampToValueAtTime(0.001, t + i * 0.1 + 0.35);
+    play(o, [g1], i * 0.1, i * 0.1 + 0.35);
   });
 }
 
-/**
- * Play a negative buzz (failure, damage).
- */
 export function playFailure() {
-  if (!audioCtx) return;
-  const now = audioCtx.currentTime;
-
-  const osc = audioCtx.createOscillator();
-  osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(200, now);
-  osc.frequency.linearRampToValueAtTime(100, now + 0.3);
-
-  const gain = audioCtx.createGain();
-  gain.gain.setValueAtTime(0.15, now);
-  gain.gain.linearRampToValueAtTime(0, now + 0.3);
-
-  const filter = audioCtx.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.value = 600;
-
-  osc.connect(filter);
-  filter.connect(gain);
-  gain.connect(sfxGain);
-  osc.start(now);
-  osc.stop(now + 0.3);
+  if (!ctx) return;
+  const t = now();
+  const o = osc('sawtooth', 220);
+  o.frequency.linearRampToValueAtTime(100, t + 0.35);
+  const g1 = gain(0.12);
+  g1.gain.linearRampToValueAtTime(0, t + 0.35);
+  const f1 = filter('lowpass', 500);
+  play(o, [f1, g1], 0, 0.35);
 }
 
-/**
- * Play a heartbeat (tension / low health).
- */
 export function playHeartbeat() {
-  if (!audioCtx) return;
-  const now = audioCtx.currentTime;
-
+  if (!ctx) return;
+  const t = now();
   for (let beat = 0; beat < 2; beat++) {
-    const t = now + beat * 0.25;
-    const osc = audioCtx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.value = 40 + beat * 10;
-    const gain = audioCtx.createGain();
-    gain.gain.setValueAtTime(0, t);
-    gain.gain.linearRampToValueAtTime(0.2, t + 0.03);
-    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
-    osc.connect(gain);
-    gain.connect(sfxGain);
-    osc.start(t);
-    osc.stop(t + 0.15);
+    const delay = beat * 0.28;
+    const o = osc('sine', 35 + beat * 8);
+    const g1 = gain(0);
+    g1.gain.linearRampToValueAtTime(0.2, t + delay + 0.03);
+    g1.gain.exponentialRampToValueAtTime(0.01, t + delay + 0.18);
+    play(o, [g1], delay, delay + 0.18);
   }
 }
 
-/**
- * Play typewriter tick (narration).
- */
 export function playTypeTick() {
-  if (!audioCtx) return;
-  const now = audioCtx.currentTime;
-
-  const osc = audioCtx.createOscillator();
-  osc.type = 'square';
-  osc.frequency.value = 4000 + Math.random() * 1000;
-  const gain = audioCtx.createGain();
-  gain.gain.setValueAtTime(0.02, now);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.015);
-  osc.connect(gain);
-  gain.connect(sfxGain);
-  osc.start(now);
-  osc.stop(now + 0.015);
+  if (!ctx) return;
+  const t = now();
+  const o = osc('square', 3500 + Math.random() * 1500);
+  const g1 = gain(0.015);
+  g1.gain.exponentialRampToValueAtTime(0.001, t + 0.012);
+  play(o, [g1], 0, 0.012);
 }
 
-/**
- * Play a screamer zombie shriek.
- */
-export function playScreamerShriek() {
-  if (!audioCtx) return;
-  const now = audioCtx.currentTime;
+export function playDoorCreak() {
+  if (!ctx) return;
+  const t = now();
+  const duration = 1.2;
+  const o = osc('sawtooth', 200);
+  // Creaking sweep up and down
+  o.frequency.linearRampToValueAtTime(350, t + 0.3);
+  o.frequency.linearRampToValueAtTime(180, t + 0.6);
+  o.frequency.linearRampToValueAtTime(400, t + 0.9);
+  o.frequency.linearRampToValueAtTime(150, t + duration);
+  const g1 = gain(0);
+  g1.gain.linearRampToValueAtTime(0.06, t + 0.1);
+  g1.gain.linearRampToValueAtTime(0.04, t + 0.8);
+  g1.gain.linearRampToValueAtTime(0, t + duration);
+  const f1 = filter('bandpass', 250, 8);
+  play(o, [f1, g1], 0, duration);
+}
 
-  const osc = audioCtx.createOscillator();
-  osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(800, now);
-  osc.frequency.linearRampToValueAtTime(2000, now + 0.2);
-  osc.frequency.linearRampToValueAtTime(1500, now + 0.8);
+export function playGlassBreak() {
+  if (!ctx) return;
+  const t = now();
+  // High frequency shatter
+  const n = noise(0.3);
+  const ng = gain(0.2);
+  ng.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+  const nf = filter('highpass', 2000);
+  play(n, [nf, ng], 0, 0.3);
+  // Tinkling fragments
+  for (let i = 0; i < 4; i++) {
+    const delay = 0.05 + i * 0.06;
+    const freq = 3000 + Math.random() * 4000;
+    const o = osc('sine', freq);
+    const g1 = gain(0.04);
+    g1.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.15);
+    play(o, [g1], delay, delay + 0.15);
+  }
+}
 
-  const gain = audioCtx.createGain();
-  gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(0.2, now + 0.05);
-  gain.gain.linearRampToValueAtTime(0.15, now + 0.5);
-  gain.gain.linearRampToValueAtTime(0, now + 0.8);
+export function playFootstep(surface = 'concrete') {
+  if (!ctx) return;
+  const t = now();
+  const pan = (Math.random() - 0.5) * 0.6; // Slight random panning
+  const n = noise(0.08);
+  const ng = gain(surface === 'snow' ? 0.06 : 0.12);
+  ng.gain.exponentialRampToValueAtTime(0.01, t + 0.08);
+  const freq = surface === 'snow' ? 5000 : surface === 'gravel' ? 3000 : 1500;
+  const nf = filter('lowpass', freq);
+  const p = panner(pan);
+  play(n, [nf, ng, p], 0, 0.08);
+}
 
-  const filter = audioCtx.createBiquadFilter();
-  filter.type = 'bandpass';
-  filter.frequency.value = 1200;
-  filter.Q.value = 3;
+export function playDiceRoll() {
+  if (!ctx) return;
+  const t = now();
+  // Multiple clacks
+  for (let i = 0; i < 6; i++) {
+    const delay = i * 0.05 + Math.random() * 0.03;
+    const n = noise(0.03);
+    const ng = gain(0.08 * (1 - i * 0.12));
+    ng.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.03);
+    const nf = filter('bandpass', 2000 + Math.random() * 2000, 2);
+    play(n, [nf, ng], delay, delay + 0.03);
+  }
+}
 
-  osc.connect(filter);
-  filter.connect(gain);
-  gain.connect(sfxGain);
-  osc.start(now);
-  osc.stop(now + 0.8);
+export function playCrickets() {
+  if (!ctx) return;
+  const t = now();
+  const duration = 3;
+  // Multiple chirps at random intervals
+  for (let i = 0; i < 8; i++) {
+    const delay = Math.random() * duration;
+    const chirpLen = 0.05 + Math.random() * 0.03;
+    const freq = 4000 + Math.random() * 2000;
+    const pan = (Math.random() - 0.5) * 1.8; // Wide stereo field
+    const o = osc('sine', freq);
+    // Rapid on/off for chirp
+    const g1 = gain(0);
+    g1.gain.setValueAtTime(0.02, t + delay);
+    g1.gain.setValueAtTime(0, t + delay + chirpLen);
+    g1.gain.setValueAtTime(0.02, t + delay + chirpLen * 2);
+    g1.gain.setValueAtTime(0, t + delay + chirpLen * 3);
+    const p = panner(pan);
+    play(o, [g1, p], delay, delay + chirpLen * 4);
+  }
+}
+
+export function playWindGust() {
+  if (!ctx) return;
+  const t = now();
+  const duration = 2.5;
+  const n = noiseLoop();
+  const ng = gain(0);
+  ng.gain.linearRampToValueAtTime(0.08, t + 0.5);
+  ng.gain.linearRampToValueAtTime(0.12, t + 1);
+  ng.gain.linearRampToValueAtTime(0.03, t + 2);
+  ng.gain.linearRampToValueAtTime(0, t + duration);
+  const nf = filter('bandpass', 400, 0.5);
+  // Sweep the filter for wind movement
+  nf.frequency.linearRampToValueAtTime(800, t + 1);
+  nf.frequency.linearRampToValueAtTime(300, t + duration);
+  const p = panner(-0.4 + Math.random() * 0.8);
+  play(n, [nf, ng, p], 0, duration);
+}
+
+export function playOwlHoot() {
+  if (!ctx) return;
+  const t = now();
+  const pan = Math.random() > 0.5 ? -0.7 : 0.7; // Left or right
+  // Two-tone hoot
+  for (let i = 0; i < 2; i++) {
+    const delay = i * 0.4;
+    const freq = i === 0 ? 380 : 320;
+    const o = osc('sine', freq);
+    o.frequency.linearRampToValueAtTime(freq * 0.9, t + delay + 0.25);
+    const g1 = gain(0);
+    g1.gain.linearRampToValueAtTime(0.06, t + delay + 0.05);
+    g1.gain.linearRampToValueAtTime(0.04, t + delay + 0.15);
+    g1.gain.linearRampToValueAtTime(0, t + delay + 0.3);
+    const p = panner(pan);
+    play(o, [g1, p], delay, delay + 0.3);
+  }
+}
+
+export function playHeartMonitor(flatline = false) {
+  if (!ctx) return;
+  const t = now();
+  if (flatline) {
+    // Continuous tone
+    const o = osc('sine', 1000);
+    const g1 = gain(0.08);
+    play(o, [g1], 0, 2);
+  } else {
+    // Regular beeps
+    for (let i = 0; i < 3; i++) {
+      const o = osc('sine', 1000);
+      const g1 = gain(0.06);
+      g1.gain.exponentialRampToValueAtTime(0.001, t + i * 0.8 + 0.1);
+      play(o, [g1], i * 0.8, i * 0.8 + 0.1);
+    }
+  }
+}
+
+export function playFireCrackle() {
+  if (!ctx) return;
+  const t = now();
+  for (let i = 0; i < 5; i++) {
+    const delay = Math.random() * 1.5;
+    const n = noise(0.04);
+    const ng = gain(0.04 + Math.random() * 0.04);
+    ng.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.04);
+    const nf = filter('bandpass', 1000 + Math.random() * 3000, 2);
+    const p = panner((Math.random() - 0.5) * 0.6);
+    play(n, [nf, ng, p], delay, delay + 0.04);
+  }
+}
+
+export function playRainLoop() {
+  if (!ctx) return;
+  const t = now();
+  const n = noiseLoop();
+  const ng = gain(0.06);
+  const nf = filter('lowpass', 3000, 0.3);
+  n.connect(nf);
+  nf.connect(ng);
+  ng.connect(musicGain);
+  n.start(t);
+  ambienceNodes.push(n, ng, nf);
+}
+
+export function playThunder() {
+  if (!ctx) return;
+  const t = now();
+  const pan = (Math.random() - 0.5) * 1.4;
+  // Initial crack
+  const n1 = noise(0.15);
+  const n1g = gain(0.25);
+  n1g.gain.exponentialRampToValueAtTime(0.05, t + 0.15);
+  const n1f = filter('lowpass', 1500);
+  const p1 = panner(pan);
+  play(n1, [n1f, n1g, p1], 0, 0.15);
+  // Rolling rumble
+  const n2 = noise(2);
+  const n2g = gain(0);
+  n2g.gain.linearRampToValueAtTime(0.1, t + 0.2);
+  n2g.gain.linearRampToValueAtTime(0.06, t + 1);
+  n2g.gain.linearRampToValueAtTime(0, t + 2);
+  const n2f = filter('lowpass', 200);
+  const p2 = panner(pan * 0.5);
+  play(n2, [n2f, n2g, p2], 0.1, 2.1);
 }
 
 // ========== AMBIENT MUSIC ==========
 
-/**
- * Start ambient music for a given mood.
- * Moods: 'exploration', 'tension', 'combat', 'sorrow', 'hope', 'winter'
- */
-export function startAmbience(mood) {
-  if (!audioCtx) return;
-  if (currentAmbience === mood) return;
+const AMBIENCE = {
+  exploration: { wave: 'sine', freq: 55, vol: 0.05, filter: 200, lfo: 0.05, depth: 30, noise: 0.01, noiseFreq: 300 },
+  tension:     { wave: 'sawtooth', freq: 45, vol: 0.04, filter: 150, lfo: 0.15, depth: 20, noise: 0.02, noiseFreq: 800 },
+  combat:      { wave: 'sawtooth', freq: 60, vol: 0.07, filter: 400, lfo: 0.4, depth: 50, noise: 0.03, noiseFreq: 1000 },
+  sorrow:      { wave: 'sine', freq: 65, vol: 0.04, filter: 180, lfo: 0.03, depth: 15, noise: 0.005, noiseFreq: 200 },
+  hope:        { wave: 'sine', freq: 130, vol: 0.04, filter: 400, lfo: 0.04, depth: 25, noise: 0, noiseFreq: 0 },
+  winter:      { wave: 'sine', freq: 40, vol: 0.04, filter: 120, lfo: 0.02, depth: 10, noise: 0.04, noiseFreq: 2000 },
+};
 
+export function startAmbience(mood) {
+  if (!ctx || currentAmbience === mood) return;
   stopAmbience();
   currentAmbience = mood;
+  const p = AMBIENCE[mood] || AMBIENCE.exploration;
 
-  const params = AMBIENCE_PARAMS[mood] || AMBIENCE_PARAMS.exploration;
-
-  // Base drone
-  const drone = audioCtx.createOscillator();
-  drone.type = params.droneWave;
-  drone.frequency.value = params.droneFreq;
-  const droneGain = audioCtx.createGain();
-  droneGain.gain.value = params.droneVol;
-
-  const droneFilter = audioCtx.createBiquadFilter();
-  droneFilter.type = 'lowpass';
-  droneFilter.frequency.value = params.droneFilterFreq;
-
-  drone.connect(droneFilter);
-  droneFilter.connect(droneGain);
-  droneGain.connect(musicGain);
+  const drone = osc(p.wave, p.freq);
+  const dg = gain(p.vol);
+  const df = filter('lowpass', p.filter);
+  drone.connect(df); df.connect(dg); dg.connect(musicGain);
   drone.start();
-  ambienceNodes.push(drone, droneGain, droneFilter);
+  ambienceNodes.push(drone, dg, df);
 
-  // Second oscillator for thickness
-  const drone2 = audioCtx.createOscillator();
-  drone2.type = params.drone2Wave || 'sine';
-  drone2.frequency.value = params.droneFreq * params.drone2Ratio;
-  const drone2Gain = audioCtx.createGain();
-  drone2Gain.gain.value = params.droneVol * 0.5;
-  drone2.connect(drone2Gain);
-  drone2Gain.connect(musicGain);
+  const drone2 = osc('sine', p.freq * 1.5);
+  const d2g = gain(p.vol * 0.4);
+  drone2.connect(d2g); d2g.connect(musicGain);
   drone2.start();
-  ambienceNodes.push(drone2, drone2Gain);
+  ambienceNodes.push(drone2, d2g);
 
-  // LFO for slow movement
-  const lfo = audioCtx.createOscillator();
-  lfo.type = 'sine';
-  lfo.frequency.value = params.lfoRate;
-  const lfoGain = audioCtx.createGain();
-  lfoGain.gain.value = params.lfoDepth;
-  lfo.connect(lfoGain);
-  lfoGain.connect(droneFilter.frequency);
+  const lfo = osc('sine', p.lfo);
+  const lfog = gain(p.depth);
+  lfo.connect(lfog); lfog.connect(df.frequency);
   lfo.start();
-  ambienceNodes.push(lfo, lfoGain);
+  ambienceNodes.push(lfo, lfog);
 
-  // Noise layer for texture
-  if (params.noiseVol > 0) {
-    const noise = createNoiseLoop();
-    const noiseGain = audioCtx.createGain();
-    noiseGain.gain.value = params.noiseVol;
-    const noiseFilter = audioCtx.createBiquadFilter();
-    noiseFilter.type = 'bandpass';
-    noiseFilter.frequency.value = params.noiseFreq || 500;
-    noiseFilter.Q.value = 0.5;
-    noise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    noiseGain.connect(musicGain);
-    noise.start();
-    ambienceNodes.push(noise, noiseGain, noiseFilter);
+  if (p.noise > 0) {
+    const n = noiseLoop();
+    const ng = gain(p.noise);
+    const nf = filter('bandpass', p.noiseFreq, 0.5);
+    n.connect(nf); nf.connect(ng); ng.connect(musicGain);
+    n.start();
+    ambienceNodes.push(n, ng, nf);
   }
 }
 
-/**
- * Stop all ambient music.
- */
 export function stopAmbience() {
   for (const node of ambienceNodes) {
-    try {
-      if (node.stop) node.stop();
-      node.disconnect();
-    } catch (e) {}
+    try { if (node.stop) node.stop(); node.disconnect(); } catch (e) {}
   }
   ambienceNodes = [];
   currentAmbience = null;
 }
 
-/**
- * Cross-fade to a new ambience mood.
- */
 export function crossfadeAmbience(newMood, duration = 2) {
-  if (!audioCtx || currentAmbience === newMood) return;
-
-  // Fade out current
-  if (musicGain) {
-    musicGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration / 2);
-  }
-
+  if (!ctx || currentAmbience === newMood) return;
+  if (musicGain) musicGain.gain.linearRampToValueAtTime(0, now() + duration / 2);
   setTimeout(() => {
     stopAmbience();
-    if (musicGain) musicGain.gain.value = musicVolume;
+    if (musicGain) musicGain.gain.value = 0.3;
     startAmbience(newMood);
   }, (duration / 2) * 1000);
 }
 
-const AMBIENCE_PARAMS = {
-  exploration: {
-    droneWave: 'sine', droneFreq: 55, droneVol: 0.06, droneFilterFreq: 200,
-    drone2Wave: 'sine', drone2Ratio: 1.5, lfoRate: 0.05, lfoDepth: 30,
-    noiseVol: 0.01, noiseFreq: 300,
-  },
-  tension: {
-    droneWave: 'sawtooth', droneFreq: 45, droneVol: 0.04, droneFilterFreq: 150,
-    drone2Wave: 'triangle', drone2Ratio: 1.01, lfoRate: 0.15, lfoDepth: 20,
-    noiseVol: 0.02, noiseFreq: 800,
-  },
-  combat: {
-    droneWave: 'sawtooth', droneFreq: 60, droneVol: 0.08, droneFilterFreq: 400,
-    drone2Wave: 'square', drone2Ratio: 1.5, lfoRate: 0.4, lfoDepth: 50,
-    noiseVol: 0.03, noiseFreq: 1000,
-  },
-  sorrow: {
-    droneWave: 'sine', droneFreq: 65, droneVol: 0.05, droneFilterFreq: 180,
-    drone2Wave: 'sine', drone2Ratio: 1.25, lfoRate: 0.03, lfoDepth: 15,
-    noiseVol: 0.005, noiseFreq: 200,
-  },
-  hope: {
-    droneWave: 'sine', droneFreq: 130, droneVol: 0.04, droneFilterFreq: 400,
-    drone2Wave: 'sine', drone2Ratio: 1.5, lfoRate: 0.04, lfoDepth: 25,
-    noiseVol: 0, noiseFreq: 0,
-  },
-  winter: {
-    droneWave: 'sine', droneFreq: 40, droneVol: 0.05, droneFilterFreq: 120,
-    drone2Wave: 'triangle', drone2Ratio: 2, lfoRate: 0.02, lfoDepth: 10,
-    noiseVol: 0.04, noiseFreq: 2000, // Wind noise
-  },
-};
-
-// ========== HELPERS ==========
-
-function createNoise(duration) {
-  const bufferSize = audioCtx.sampleRate * duration;
-  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) {
-    data[i] = Math.random() * 2 - 1;
-  }
-  const source = audioCtx.createBufferSource();
-  source.buffer = buffer;
-  return source;
-}
-
-function createNoiseLoop() {
-  const bufferSize = audioCtx.sampleRate * 2; // 2 second loop
-  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) {
-    data[i] = Math.random() * 2 - 1;
-  }
-  const source = audioCtx.createBufferSource();
-  source.buffer = buffer;
-  source.loop = true;
-  return source;
-}
-
-/**
- * Get the appropriate ambience mood for the current game state.
- */
 export function getAmbienceForState(state) {
   if (!state) return 'exploration';
-
   if (state.meta.phase === 'GAME_OVER') return 'sorrow';
   if (state.meta.phase === 'VICTORY') return 'hope';
   if (state.meta.phase === 'MINIGAME') return 'combat';
-
-  if (state.calendar.season === 'winter') return 'winter';
-  if (state.player.health < 30) return 'tension';
-  if (state.resources.food <= 1 || state.resources.water <= 1) return 'tension';
-
-  const currentEvent = state.currentEvent;
-  if (currentEvent) {
-    if (currentEvent.type === 'combat') return 'combat';
-    if (currentEvent.type === 'crisis') return 'tension';
-    if (currentEvent.type === 'story') return 'tension';
-  }
-
+  if (state.calendar?.season === 'winter') return 'winter';
+  if (state.player?.health < 30) return 'tension';
+  if (state.resources?.food <= 1 || state.resources?.water <= 1) return 'tension';
+  if (state.currentEvent?.type === 'combat') return 'combat';
+  if (state.currentEvent?.type === 'crisis') return 'tension';
   return 'exploration';
 }
