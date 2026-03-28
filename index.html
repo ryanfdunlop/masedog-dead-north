@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MASEDOG: Dead North</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☠</text></svg>">
+</head>
+<body>
+
+  <!-- HUD - Always visible during gameplay -->
+  <div id="hud" class="hidden"></div>
+
+  <!-- TITLE SCREEN -->
+  <div id="screen-title" class="screen active">
+    <div class="title-logo">MASEDOG</div>
+    <div class="title-subtitle">DEAD NORTH</div>
+    <div class="title-flavor">
+      The year is 2031. AI has turned on humanity.<br>
+      A virus has transformed the world into a nightmare.<br>
+      You must travel 4,400 km from Vancouver to Ottawa.<br>
+      52 weeks. One chance. Find the cure.<br>
+      <br>
+      Will you survive the Dead North?
+    </div>
+    <button id="btn-new-game">START GAME</button>
+  </div>
+
+  <!-- GAME SCREEN - Narration + Choices -->
+  <div id="screen-game" class="screen">
+    <div id="narrator"></div>
+    <div id="choices"></div>
+  </div>
+
+  <!-- CAMP SCREEN - Between turns -->
+  <div id="screen-camp" class="screen">
+    <div id="camp-content"></div>
+  </div>
+
+  <!-- GAME OVER SCREEN -->
+  <div id="screen-gameover" class="screen">
+    <div id="gameover-content"></div>
+  </div>
+
+  <!-- VICTORY SCREEN -->
+  <div id="screen-victory" class="screen">
+    <div id="victory-content"></div>
+  </div>
+
+  <!-- Game Entry Point -->
+  <script type="module">
+    import { initScreens } from './ui/screens.js';
+    import { showTitle } from './engine/game.js';
+
+    // Initialize when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      initScreens();
+      showTitle();
+    });
+  </script>
+
+</body>
+</html>
