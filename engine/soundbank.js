@@ -13,16 +13,31 @@ let loaded = false;
 
 // Sound manifest — maps game sound names to file paths
 const MANIFEST = {
-  // Ambient drones (loop)
+  // Ambient drones — 12 total for scene variety
   drone_1: 'ambient/drone_001.wav',
   drone_2: 'ambient/drone_002.wav',
   drone_3: 'ambient/drone_003.wav',
   drone_4: 'ambient/drone_004.wav',
+  drone_5: 'ambient/drone_006.wav',
+  drone_6: 'ambient/drone_007.wav',
+  drone_7: 'ambient/drone_008.wav',
+  drone_8: 'ambient/drone_010.wav',
+  drone_9: 'ambient/drone_015.wav',
+  drone_10: 'ambient/drone_020.wav',
+  drone_11: 'ambient/drone_030.wav',
+  drone_12: 'ambient/drone_040.wav',
+
+  // Soundscapes — 8 total for long-form atmosphere
   soundscape_1: 'ambient/soundscape_002.wav',
   soundscape_2: 'ambient/soundscape_003.wav',
   soundscape_3: 'ambient/soundscape_005.wav',
+  soundscape_4: 'ambient/soundscape_010.wav',
+  soundscape_5: 'ambient/soundscape_020.wav',
+  soundscape_6: 'ambient/soundscape_030.wav',
+  soundscape_7: 'ambient/soundscape_040.wav',
+  soundscape_8: 'ambient/soundscape_050.wav',
 
-  // Zombie growls
+  // Zombie growls — 6 variants
   growl_1: 'sfx/growl_001.wav',
   growl_2: 'sfx/growl_003.wav',
   growl_3: 'sfx/growl_004.wav',
@@ -30,29 +45,50 @@ const MANIFEST = {
   growl_5: 'sfx/growl_006.wav',
   growl_6: 'sfx/growl_007.wav',
 
-  // Ghost/eerie
+  // Ghost/eerie — 8 variants
   ghost_1: 'sfx/ghost_001.wav',
   ghost_2: 'sfx/ghost_002.wav',
   ghost_3: 'sfx/ghost_003.wav',
   ghost_4: 'sfx/ghost_004.wav',
   ghost_5: 'sfx/ghost_005.wav',
+  ghost_6: 'sfx/ghost_010.wav',
+  ghost_7: 'sfx/ghost_015.wav',
+  ghost_8: 'sfx/ghost_020.wav',
 
-  // Combat hits
+  // Combat hits — 10 variants
   hit_1: 'sfx/hit_001.wav',
   hit_2: 'sfx/hit_002.wav',
   hit_3: 'sfx/hit_003.wav',
   hit_4: 'sfx/hit_004.wav',
   hit_5: 'sfx/hit_007.wav',
   hit_6: 'sfx/hit_008.wav',
+  hit_7: 'sfx/hit_015.wav',
+  hit_8: 'sfx/hit_030.wav',
+  hit_9: 'sfx/hit_050.wav',
+  hit_10: 'sfx/hit_080.wav',
 
-  // Bass sub-impacts
+  // Bass sub-impacts — 4 variants
   bass_1: 'sfx/bass_001.wav',
   bass_2: 'sfx/bass_002.wav',
+  bass_3: 'sfx/bass_005.wav',
+  bass_4: 'sfx/bass_008.wav',
 
-  // Dark SFX
+  // Dark SFX — 8 variants
   darksfx_1: 'sfx/darksfx_001.wav',
   darksfx_2: 'sfx/darksfx_002.wav',
   darksfx_3: 'sfx/darksfx_003.wav',
+  darksfx_4: 'sfx/darksfx_010.wav',
+  darksfx_5: 'sfx/darksfx_020.wav',
+  darksfx_6: 'sfx/darksfx_030.wav',
+  darksfx_7: 'sfx/darksfx_050.wav',
+  darksfx_8: 'sfx/darksfx_070.wav',
+
+  // Exotic SFX — unique textures
+  exotic_1: 'sfx/exotic_001.wav',
+  exotic_2: 'sfx/exotic_010.wav',
+  exotic_3: 'sfx/exotic_020.wav',
+  exotic_4: 'sfx/exotic_030.wav',
+  exotic_5: 'sfx/exotic_050.wav',
 
   // Percussion (UI + combat layer)
   kick_1: 'sfx/kick_1.wav',
@@ -63,12 +99,15 @@ const MANIFEST = {
   click_2: 'ui/click_2.wav',
   click_3: 'ui/click_3.wav',
 
-  // Tension risers
+  // Tension risers — 8 variants
   riser_1: 'risers/riser_001.wav',
   riser_2: 'risers/riser_002.wav',
   riser_3: 'risers/riser_003.wav',
   riser_4: 'risers/riser_004.wav',
   riser_5: 'risers/riser_005.wav',
+  riser_6: 'risers/riser_010.wav',
+  riser_7: 'risers/riser_050.wav',
+  riser_8: 'risers/riser_100.wav',
 
   // Transitions
   whoosh_1: 'transitions/whoosh_001.wav',
@@ -77,9 +116,11 @@ const MANIFEST = {
   whoosh_4: 'transitions/whoosh_004.wav',
   whoosh_5: 'transitions/whoosh_005.wav',
 
-  // Combat music loops
+  // Combat music loops — 4 variants
   combat_loop_1: 'music/combat_loop_1.wav',
   combat_loop_2: 'music/combat_loop_2.wav',
+  combat_loop_3: 'music/combat_loop_005.wav',
+  combat_loop_4: 'music/combat_loop_010.wav',
 };
 
 /**
@@ -236,4 +277,46 @@ export function sbKick() {
 /** Play a snap (gunshot layer) */
 export function sbSnap() {
   return playRandom('snap', { volume: 0.3 });
+}
+
+/** Play an exotic/unique SFX texture */
+export function sbExotic() {
+  return playRandom('exotic', { volume: 0.2, panVal: (Math.random() - 0.5) * 1.0 });
+}
+
+/** Play a random soundscape (long atmosphere) */
+export function sbSoundscape() {
+  return playRandom('soundscape', { volume: 0.06, loop: true, music: true });
+}
+
+/**
+ * Start scene-specific ambient based on game context.
+ * Uses different drones/soundscapes for each region.
+ */
+export function sbStartSceneAmbient(scene) {
+  const sceneMap = {
+    hospital_room:    { drone: 'drone_1', scape: 'soundscape_1' },
+    hospital:         { drone: 'drone_1', scape: 'soundscape_1' },
+    hospital_hallway: { drone: 'drone_2', scape: 'soundscape_2' },
+    hospital_outside: { drone: 'drone_3', scape: 'soundscape_3' },
+    city_night:       { drone: 'drone_4', scape: 'soundscape_4' },
+    forest:           { drone: 'drone_5', scape: 'soundscape_5' },
+    mountains:        { drone: 'drone_6', scape: 'soundscape_6' },
+    prairie:          { drone: 'drone_7', scape: 'soundscape_7' },
+    lake:             { drone: 'drone_8', scape: 'soundscape_8' },
+    winter:           { drone: 'drone_9', scape: 'soundscape_4' },
+    ruins:            { drone: 'drone_10', scape: 'soundscape_5' },
+    campfire:         { drone: 'drone_11', scape: 'soundscape_6' },
+    ottawa:           { drone: 'drone_12', scape: 'soundscape_7' },
+    highway:          { drone: 'drone_5', scape: 'soundscape_3' },
+    skytrain:         { drone: 'drone_3', scape: 'soundscape_2' },
+  };
+
+  const mapping = sceneMap[scene] || sceneMap.highway;
+  const sources = [];
+  const d = playSound(mapping.drone, { volume: 0.05, loop: true, music: true });
+  if (d) sources.push(d);
+  const s = playSound(mapping.scape, { volume: 0.04, loop: true, music: true });
+  if (s) sources.push(s);
+  return sources;
 }

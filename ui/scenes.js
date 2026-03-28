@@ -5,7 +5,7 @@
 // ============================================================
 
 import * as audio from '../engine/audio.js';
-import { sbZombieGroan, sbGhostNoise, sbDarkSFX, sbHit, isLoaded as sbReady } from '../engine/soundbank.js';
+import { sbZombieGroan, sbGhostNoise, sbDarkSFX, sbHit, sbExotic, sbStartSceneAmbient, isLoaded as sbReady } from '../engine/soundbank.js';
 
 let sceneCanvas = null;
 let sceneCtx = null;
@@ -38,13 +38,25 @@ export function setScene(sceneId) {
   if (animFrameId) cancelAnimationFrame(animFrameId);
   if (sceneCanvas) sceneCanvas.style.display = 'block';
 
-  // Trigger ambient sounds for this scene
+  // Stop previous scene-specific drone loops
+  if (sceneAmbientSources) {
+    sceneAmbientSources.forEach(s => { try { s.stop(); } catch(e) {} });
+  }
+  sceneAmbientSources = null;
+
+  // Start scene-specific real sound drone + soundscape (if loaded)
+  if (sbReady()) {
+    sceneAmbientSources = sbStartSceneAmbient(sceneId);
+  }
+
+  // Trigger procedural ambient sounds for this scene
   playSceneAmbient(sceneId);
 
   renderScene();
 }
 
 let sceneAmbientInterval = null;
+let sceneAmbientSources = null; // Real sound drone/soundscape loop sources
 
 function playSceneAmbient(sceneId) {
   // Clear any previous ambient loop
