@@ -15,6 +15,7 @@ export function getAvailableActions() {
   const region = getCurrentRegion(state.journey.currentKm);
   const isUrban = ['vancouver', 'alberta', 'manitoba', 'ontario_south', 'ottawa_approach'].includes(region);
   const isWinter = state.calendar.season === 'winter';
+  const hasDoctor = state.party.some(c => c.isAlive && c.skills.medical >= 7);
 
   const actions = [
     {
@@ -70,6 +71,17 @@ export function getAvailableActions() {
       skill: null,
       detail: `Recover HP and morale. ${state.player.health < 50 ? 'You really need this.' : 'A calm moment in the storm.'}`,
       available: true,
+    },
+    {
+      id: 'team_heal',
+      name: 'Emergency Team Care',
+      icon: '🩹',
+      description: 'Ask team members to help treat your injuries.',
+      skill: null,
+      detail: hasDoctor
+        ? `Dr. Reyes can provide expert medical care. ${state.player.health < 40 ? 'You NEED this.' : ''}`
+        : `Party members share supplies and treat wounds. ${state.player.health < 40 ? 'You NEED this.' : ''}`,
+      available: state.player.health < 80 && getLivingParty().length > 0,
     },
     {
       id: 'repair_equipment',
@@ -187,6 +199,37 @@ export function resolveAction(actionId, diceResult = null) {
         }
         effects.skillXP = { medical: diceResult.success ? 2 : 1 };
       }
+      break;
+    }
+
+    case 'team_heal': {
+      // No dice needed — team rallies to help you
+      const state2 = getState();
+      const hasDoc = state2.party.some(c => c.isAlive && c.skills.medical >= 7);
+      const hasMeds = state2.resources.medicine > 0;
+
+      let healAmount = 15; // Base team care
+      if (hasDoc) healAmount += 20; // Doctor bonus
+      if (hasMeds) {
+        healAmount += 15;
+        dispatch('UPDATE_RESOURCES', { medicine: -1 });
+        messages.push('Used 1 medicine for treatment.');
+      }
+
+      effects.health = healAmount;
+      effects.morale = 10;
+      messages.push(`Your team rallies around you. ${hasDoc ? 'Dr. Reyes takes charge — expert care.' : 'Everyone pitches in.'}`);
+      messages.push(`Recovered ${healAmount} HP.`);
+
+      if (state2.player.downed) {
+        messages.push('You\'re back on your feet. Don\'t waste the second chance.');
+      }
+
+      // Party members also benefit from the team bonding
+      for (const member of getLivingParty()) {
+        dispatch('UPDATE_CHARACTER', { id: member.id, changes: { morale: 5 } });
+      }
+      messages.push('The team\'s morale improves from working together.');
       break;
     }
 

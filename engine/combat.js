@@ -59,11 +59,7 @@ export function resolveCombat(config) {
 
     if (zombiesRemaining <= 0) break;
 
-    // Zombies attack (damage capped per round)
-    let playerDmgThisRound = 0;
-    const PLAYER_DMG_CAP = 25;
-    const MEMBER_DMG_CAP = 20;
-
+    // Zombies attack — hits are HEAVY but survivable through recovery
     for (let i = 0; i < Math.min(zombiesRemaining, fighters.length); i++) {
       const target = fighters[i];
       const dodgeCheck = skillCheck(rng, target.skills.athletics, zombieStats.attack);
@@ -71,27 +67,31 @@ export function resolveCombat(config) {
       if (!dodgeCheck.success) {
         let damage = range(rng, zombieStats.minDamage, zombieStats.maxDamage);
 
-        // Cap damage per round
         if (target.isPlayer) {
-          damage = Math.min(damage, PLAYER_DMG_CAP - playerDmgThisRound);
-          if (damage <= 0) continue;
-          playerDmgThisRound += damage;
           dispatch('UPDATE_PLAYER_HEALTH', -damage);
           messages.push(`A ${zombieStats.name} strikes you for ${damage} damage!`);
         } else {
-          damage = Math.min(damage, MEMBER_DMG_CAP);
           dispatch('UPDATE_CHARACTER', { id: target.id, changes: { health: -damage } });
           messages.push(`${target.name} takes ${damage} damage from a ${zombieStats.name}!`);
         }
 
-        // Bite chance (reduced by 40%)
-        const reducedBiteChance = Math.round(zombieStats.biteChance * 0.6);
-        if (chance(rng, reducedBiteChance)) {
+        // BITE = MASSIVE 50% max health damage + infection
+        // Bites are rare but devastating — creates urgency to find medicine
+        if (chance(rng, zombieStats.biteChance)) {
+          const biteDamage = Math.round(target.maxHealth * 0.5);
           dispatch('INFECT_CHARACTER', target.id);
-          messages.push(`${target.name} has been BITTEN!`);
+          if (target.isPlayer) {
+            dispatch('UPDATE_PLAYER_HEALTH', -biteDamage);
+            messages.push(`YOU'VE BEEN BITTEN! Massive injury — lost ${biteDamage} HP!`);
+            messages.push(`Find medicine, ask a team member for help, or rest to survive this.`);
+          } else {
+            dispatch('UPDATE_CHARACTER', { id: target.id, changes: { health: -biteDamage } });
+            messages.push(`${target.name} has been BITTEN! Critical injury — ${biteDamage} damage!`);
+            messages.push(`${target.name} needs medical attention urgently.`);
+          }
         }
 
-        // Check casualties (player uses downed system, won't die outright)
+        // Check party member casualties (player uses downed system)
         const currentHealth = target.isPlayer ? state.player.health : target.health;
         if (currentHealth <= 0 && !target.isPlayer) {
           casualties.push(target.name);

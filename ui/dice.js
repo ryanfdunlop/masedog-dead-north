@@ -381,12 +381,12 @@ function easeOutCubic(t) {
  * Returns percentage 0-100.
  */
 export function calculateSuccessChance(bonus, target, numRolls = 1) {
+  const needed = target - bonus; // What we need from dice alone
+
   if (numRolls === 1) {
     // Single 2d6: outcomes are 2-12
-    const needed = target - bonus;
     if (needed <= 2) return 100;
     if (needed > 12) return 0;
-    // Count successful outcomes out of 36 possible
     let successes = 0;
     for (let a = 1; a <= 6; a++) {
       for (let b = 1; b <= 6; b++) {
@@ -395,32 +395,63 @@ export function calculateSuccessChance(bonus, target, numRolls = 1) {
     }
     return Math.round((successes / 36) * 100);
   }
-  // Multi-roll: approximate with simulation isn't needed,
-  // use a simplified estimate
-  const singleAvg = 7; // average of 2d6
-  const totalAvg = singleAvg * numRolls + bonus;
-  const diff = target - totalAvg;
-  // Rough sigmoid approximation
-  const chance = 1 / (1 + Math.exp(diff * 0.5));
-  return Math.round(chance * 100);
+
+  if (numRolls === 2) {
+    // Two rolls of 2d6: range 4-24, simulate all combos
+    if (needed <= 4) return 100;
+    if (needed > 24) return 0;
+    let successes = 0;
+    const total = 36 * 36; // 1296 combos
+    for (let a1 = 1; a1 <= 6; a1++)
+      for (let b1 = 1; b1 <= 6; b1++)
+        for (let a2 = 1; a2 <= 6; a2++)
+          for (let b2 = 1; b2 <= 6; b2++)
+            if (a1 + b1 + a2 + b2 >= needed) successes++;
+    return Math.round((successes / total) * 100);
+  }
+
+  // 3 rolls: use approximation (normal distribution)
+  // Mean of Nd6 dice where N=numRolls*2: mean = N*3.5, std = sqrt(N*35/12)
+  const numDice = numRolls * 2;
+  const mean = numDice * 3.5;
+  const std = Math.sqrt(numDice * 35 / 12);
+  // Normal CDF approximation
+  const z = (needed - mean) / std;
+  const chance = 1 - normalCDF(z);
+  return Math.max(1, Math.min(99, Math.round(chance * 100)));
+}
+
+function normalCDF(x) {
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const d = 0.3989422804 * Math.exp(-x * x / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return x > 0 ? 1 - p : p;
 }
 
 /**
  * Convert old d20 DC to new 2d6 target system.
- * d20+mod >= DC  →  2d6+mod >= target
- * Scale: DC 8 → target 5, DC 12 → target 8, DC 16 → target 11, DC 18 → target 12
+ * Targets are HIGH so skill bonus matters and low rolls fail.
+ * 2d6 range: 2-12, avg 7. With bonus 5, avg total = 12.
+ * We want: easy ~75%, medium ~50%, hard ~25%, extreme ~10%
+ *
+ * DC 8 (easy)    → target 9  (need 4+ on dice with bonus 5 = 92%)
+ * DC 10 (medium) → target 12 (need 7+ = 58%)
+ * DC 12 (tough)  → target 14 (need 9+ = 28%)
+ * DC 14 (hard)   → target 16 (need 11+ = 8% per roll)
+ * DC 16+ (extreme) → target 18 (need 13+, impossible single roll, needs multi-roll)
  */
 export function convertDCtoTarget(dc) {
-  // Linear mapping: DC 8-18 → target 5-12
-  return Math.max(3, Math.min(12, Math.round(dc * 0.7 - 0.6)));
+  // Higher targets = harder. Skill bonus is the key to success.
+  return Math.max(7, Math.min(20, Math.round(dc * 1.1 + 0.5)));
 }
 
 /**
  * Determine number of rolls needed based on difficulty.
+ * More rolls = more dice totaled together = higher possible sum.
  */
 export function getRollCount(dc) {
-  if (dc <= 10) return 1;      // Easy: 1 roll
-  if (dc <= 14) return 1;      // Medium: 1 roll (higher target)
-  if (dc <= 17) return 2;      // Hard: 2 rolls
-  return 3;                     // Extreme: 3 rolls
+  if (dc <= 10) return 1;      // Easy: 1 roll (2d6, range 2-12)
+  if (dc <= 13) return 1;      // Medium: 1 roll, higher target
+  if (dc <= 16) return 2;      // Hard: 2 rolls (4d6 total, range 4-24)
+  return 3;                     // Extreme: 3 rolls (6d6 total, range 6-36)
 }
