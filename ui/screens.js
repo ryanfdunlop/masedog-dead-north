@@ -9,6 +9,9 @@ import { getInfectionStatus } from '../engine/infection.js';
 import { getCurrentWaypoint, getNextWaypoint, getProgress } from '../data/locations.js';
 import { getMonthName } from '../data/seasons.js';
 import { initNarrator, clearNarration } from './narrator.js';
+import { renderMap } from './map.js';
+import { renderInventory } from './inventory.js';
+import { saveGame, loadGame, getSaveSlots, hasSaves, autosave } from '../engine/save.js';
 
 let screens = {};
 let hudEl = null;
@@ -79,12 +82,31 @@ function setupTitleScreen(data) {
       if (data.onNewGame) data.onNewGame();
     };
   }
+
+  // Show/hide continue button based on saves
+  const continueBtn = document.getElementById('btn-continue-game');
+  if (continueBtn) {
+    if (hasSaves()) {
+      continueBtn.style.display = 'block';
+      continueBtn.onclick = () => {
+        const result = loadGame(0); // Load autosave
+        if (result.success && data.onLoad) {
+          data.onLoad();
+        }
+      };
+    } else {
+      continueBtn.style.display = 'none';
+    }
+  }
 }
 
 function setupCampScreen(data) {
   const state = getState();
   const campContent = document.getElementById('camp-content');
   if (!campContent) return;
+
+  // Autosave at camp
+  autosave();
 
   const resources = getResourceStatus();
   const waypoint = getCurrentWaypoint(state.journey.currentKm);
@@ -100,37 +122,70 @@ function setupCampScreen(data) {
       <div class="camp-weather">Weather: ${state.weather.current.replace('_', ' ')} (${state.weather.temperature}°C)</div>
     </div>
 
-    <div class="camp-section">
-      <h3>SUPPLIES</h3>
-      <div class="camp-resources">
-        ${resourceBar('Food', resources.food.amount, 20, resources.food.critical)}
-        ${resourceBar('Water', resources.water.amount, 20, resources.water.critical)}
-        ${resourceBar('Medicine', resources.medicine.amount, 10, resources.medicine.critical)}
-        ${resourceBar('Ammo', resources.ammo.amount, 30, resources.ammo.critical)}
-        ${resourceBar('Fuel', resources.fuel.amount, 10, resources.fuel.critical)}
-        ${resourceBar('Scrap', resources.scrap.amount, 20, false)}
+    <div class="camp-tabs">
+      <button class="camp-tab active" data-tab="status">STATUS</button>
+      <button class="camp-tab" data-tab="party">PARTY</button>
+      <button class="camp-tab" data-tab="map">MAP</button>
+      <button class="camp-tab" data-tab="save">SAVE</button>
+    </div>
+
+    <div class="camp-tab-content" id="tab-status">
+      <div class="camp-section">
+        <h3>SUPPLIES</h3>
+        <div class="camp-resources">
+          ${resourceBar('Food', resources.food.amount, 20, resources.food.critical)}
+          ${resourceBar('Water', resources.water.amount, 20, resources.water.critical)}
+          ${resourceBar('Medicine', resources.medicine.amount, 10, resources.medicine.critical)}
+          ${resourceBar('Ammo', resources.ammo.amount, 30, resources.ammo.critical)}
+          ${resourceBar('Fuel', resources.fuel.amount, 10, resources.fuel.critical)}
+          ${resourceBar('Scrap', resources.scrap.amount, 20, false)}
+        </div>
+      </div>
+
+      <div class="camp-section">
+        <h3>PARTY (${getPartySize()} members)</h3>
+        <div class="camp-party">
+          ${characterCard(state.player)}
+          ${living.map(c => characterCard(c)).join('')}
+        </div>
+      </div>
+
+      <div class="camp-section">
+        <h3>JOURNEY</h3>
+        <div class="journey-bar">
+          <div class="journey-fill" style="width: ${progress}%"></div>
+          <span class="journey-text">${state.journey.currentKm} / ${state.journey.totalKm} km</span>
+        </div>
+        <div class="camp-next">Next: ${nextWp.name} (${Math.max(0, nextWp.km - state.journey.currentKm)} km)</div>
       </div>
     </div>
 
-    <div class="camp-section">
-      <h3>PARTY (${getPartySize()} members)</h3>
-      <div class="camp-party">
-        ${characterCard(state.player)}
-        ${living.map(c => characterCard(c)).join('')}
-      </div>
-    </div>
-
-    <div class="camp-section">
-      <h3>JOURNEY</h3>
-      <div class="journey-bar">
-        <div class="journey-fill" style="width: ${progress}%"></div>
-        <span class="journey-text">${state.journey.currentKm} / ${state.journey.totalKm} km</span>
-      </div>
-      <div class="camp-next">Next: ${nextWp.name} (${Math.max(0, nextWp.km - state.journey.currentKm)} km)</div>
-    </div>
+    <div class="camp-tab-content hidden" id="tab-party"></div>
+    <div class="camp-tab-content hidden" id="tab-map"></div>
+    <div class="camp-tab-content hidden" id="tab-save"></div>
 
     <button class="btn-continue" id="btn-continue-turn">CONTINUE JOURNEY</button>
   `;
+
+  // Tab switching
+  campContent.querySelectorAll('.camp-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      campContent.querySelectorAll('.camp-tab').forEach(t => t.classList.remove('active'));
+      campContent.querySelectorAll('.camp-tab-content').forEach(c => c.classList.add('hidden'));
+      tab.classList.add('active');
+      const target = document.getElementById(`tab-${tab.dataset.tab}`);
+      if (target) target.classList.remove('hidden');
+
+      // Lazy render tab content
+      if (tab.dataset.tab === 'party') {
+        renderInventory(document.getElementById('tab-party'));
+      } else if (tab.dataset.tab === 'map') {
+        renderMap(document.getElementById('tab-map'));
+      } else if (tab.dataset.tab === 'save') {
+        renderSaveTab(document.getElementById('tab-save'));
+      }
+    });
+  });
 
   const continueBtn = document.getElementById('btn-continue-turn');
   if (continueBtn) {
@@ -138,6 +193,68 @@ function setupCampScreen(data) {
       if (data.onContinue) data.onContinue();
     };
   }
+}
+
+function renderSaveTab(container) {
+  const slots = getSaveSlots();
+
+  let html = `<div class="save-container">`;
+
+  for (const slot of slots) {
+    if (slot.slot === 0) {
+      // Autosave - display only
+      html += `
+        <div class="save-slot autosave">
+          <div class="save-slot-header">AUTOSAVE</div>
+          ${slot.exists ? `
+            <div class="save-slot-info">
+              Week ${slot.week} — ${slot.location} — ${slot.progress}% — Party: ${slot.partySize}
+            </div>
+            <div class="save-slot-time">${new Date(slot.timestamp).toLocaleString()}</div>
+          ` : '<div class="save-slot-empty">No autosave</div>'}
+        </div>
+      `;
+    } else {
+      html += `
+        <div class="save-slot">
+          <div class="save-slot-header">SLOT ${slot.slot}</div>
+          ${slot.exists ? `
+            <div class="save-slot-info">
+              Week ${slot.week} — ${slot.location} — ${slot.progress}% — Party: ${slot.partySize}
+            </div>
+            <div class="save-slot-time">${new Date(slot.timestamp).toLocaleString()}</div>
+          ` : '<div class="save-slot-empty">Empty</div>'}
+          <div class="save-slot-actions">
+            <button class="btn-save-slot" data-slot="${slot.slot}">SAVE</button>
+            ${slot.exists ? `<button class="btn-load-slot" data-slot="${slot.slot}">LOAD</button>` : ''}
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  html += `</div>`;
+  container.innerHTML = html;
+
+  // Wire up save/load buttons
+  container.querySelectorAll('.btn-save-slot').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const result = saveGame(parseInt(btn.dataset.slot));
+      if (result.success) {
+        renderSaveTab(container); // Re-render to show updated slot
+      }
+    });
+  });
+
+  container.querySelectorAll('.btn-load-slot').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const result = loadGame(parseInt(btn.dataset.slot));
+      if (result.success) {
+        // Refresh the camp screen
+        showScreen('camp', { onContinue: () => {} });
+      }
+    });
+  });
 }
 
 function resourceBar(name, amount, max, critical) {

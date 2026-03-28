@@ -12,12 +12,14 @@ import { generateWeather, applyWeatherEffects } from './weather.js';
 import { tickInfections } from './infection.js';
 import { selectEvent, registerEvents, resolveChoice, getCurrentRegion } from './events.js';
 import { resolveCombat } from './combat.js';
+import { autosave } from './save.js';
 import { COMBAT_EVENTS } from '../data/events/encounter-combat.js';
 import { SCAVENGE_EVENTS } from '../data/events/encounter-scavenge.js';
 import { SOCIAL_EVENTS } from '../data/events/encounter-social.js';
 import { CRISIS_EVENTS } from '../data/events/encounter-crisis.js';
 import { STORY_EVENTS } from '../data/events/encounter-story.js';
 import { SPECIAL_EVENTS } from '../data/events/encounter-special.js';
+import { NEW_COMBAT_EVENTS, NEW_SCAVENGE_EVENTS, NEW_SOCIAL_EVENTS, NEW_CRISIS_EVENTS, NEW_STORY_EVENTS } from '../data/events/encounter-new.js';
 import { PROLOGUE } from '../data/story/prologue.js';
 import { getCurrentWaypoint, getNextWaypoint, getProgress } from '../data/locations.js';
 import { getSeasonNarration, getMonthName } from '../data/seasons.js';
@@ -31,6 +33,11 @@ registerEvents(SOCIAL_EVENTS);
 registerEvents(CRISIS_EVENTS);
 registerEvents(STORY_EVENTS);
 registerEvents(SPECIAL_EVENTS);
+registerEvents(NEW_COMBAT_EVENTS);
+registerEvents(NEW_SCAVENGE_EVENTS);
+registerEvents(NEW_SOCIAL_EVENTS);
+registerEvents(NEW_CRISIS_EVENTS);
+registerEvents(NEW_STORY_EVENTS);
 
 let prologuePhase = 'intro';
 
@@ -299,6 +306,10 @@ async function runEvent(event) {
         if (choice.successText) messages.push(choice.successText);
         if (choice.successEffects) applyEffects(choice.successEffects);
 
+        // Skill growth on success
+        const growthMsg = trySkillGrowth('masedog', skill);
+        if (growthMsg) messages.push(growthMsg);
+
         // Handle combat on success path
         if (choice.combat && !choice.failureCombat) {
           const combatResult = resolveCombat(choice.combat);
@@ -439,6 +450,32 @@ function showVictoryScreen() {
     },
     onRestart: () => startNewGame(),
   });
+}
+
+/**
+ * Attempt to grow a character's skill after a successful check.
+ * 20% chance on success, modified by quick_learner trait.
+ */
+function trySkillGrowth(characterId, skillName) {
+  const state = getState();
+  const rng = getRNG();
+  const char = characterId === 'masedog'
+    ? state.player
+    : state.party.find(c => c.id === characterId);
+
+  if (!char || !char.skills[skillName]) return null;
+  if (char.skills[skillName] >= 10) return null; // Max skill
+
+  let growthChance = 20;
+  if (char.traits.includes('quick_learner')) growthChance = 35;
+  if (char.traits.includes('adaptable')) growthChance = 30;
+
+  const { chance: doChance } = { chance: (rng, pct) => rng.next() * 100 < pct };
+  if (doChance(rng, growthChance)) {
+    char.skills[skillName]++;
+    return `${char.name}'s ${skillName} improved to ${char.skills[skillName]}!`;
+  }
+  return null;
 }
 
 /**
