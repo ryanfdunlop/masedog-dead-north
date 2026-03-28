@@ -28,6 +28,7 @@ import { CHAPTER_4_EVENTS } from '../data/story/chapter-4.js';
 import { CHAPTER_5_EVENTS } from '../data/story/chapter-5.js';
 import { CHAPTER_6_EVENTS } from '../data/story/chapter-6.js';
 import { EPILOGUE_EVENTS } from '../data/story/epilogue.js';
+import { MINIGAME_EVENTS } from '../data/events/encounter-minigame.js';
 import { PROLOGUE } from '../data/story/prologue.js';
 import { getCurrentWaypoint, getNextWaypoint, getProgress } from '../data/locations.js';
 import { getSeasonNarration, getMonthName } from '../data/seasons.js';
@@ -35,6 +36,10 @@ import { showScreen, updateHUD } from '../ui/screens.js';
 import { typeText, showChoices, clearNarration, showResults } from '../ui/narrator.js';
 import { initTransitions, fadeTransition, damageFlash, screenShake, glitchEffect } from '../ui/transitions.js';
 import { initEffects, setWeatherEffect, applyDayNightTint, setLocationTheme } from '../ui/effects.js';
+import { ZombieEscape } from '../minigames/zombie-escape.js';
+import { Scavenge } from '../minigames/scavenge.js';
+import { Hunting } from '../minigames/hunting.js';
+import { RiverCrossing } from '../minigames/river-crossing.js';
 
 // Register all events
 registerEvents(COMBAT_EVENTS);
@@ -61,6 +66,7 @@ registerEvents(CHAPTER_4_EVENTS);
 registerEvents(CHAPTER_5_EVENTS);
 registerEvents(CHAPTER_6_EVENTS);
 registerEvents(EPILOGUE_EVENTS);
+registerEvents(MINIGAME_EVENTS);
 
 let prologuePhase = 'intro';
 
@@ -370,6 +376,27 @@ async function runEvent(event) {
       if (choice.resultText) messages.push(choice.resultText);
     }
 
+    // Trigger mini-game if specified
+    if (choice.triggerMinigame) {
+      const mgResult = await launchMinigame(choice.triggerMinigame, choice.minigameConfig || {});
+      if (mgResult.success) {
+        messages.push('You made it through!');
+        if (choice.minigameSuccessEffects) applyEffects(choice.minigameSuccessEffects);
+        if (mgResult.loot) {
+          for (const item of mgResult.loot) {
+            dispatch('UPDATE_RESOURCES', { [item.type]: item.amount });
+            messages.push(`Found: ${item.type} +${item.amount}`);
+          }
+        }
+        if (mgResult.food) dispatch('UPDATE_RESOURCES', { food: mgResult.food });
+      } else {
+        messages.push('That didn\'t go well...');
+        if (choice.minigameFailEffects) applyEffects(choice.minigameFailEffects);
+        else applyEffects({ health: -10, morale: -5 });
+        if (mgResult.caught) damageFlash(0.5);
+      }
+    }
+
     // Apply base effects
     if (choice.effects) applyEffects(choice.effects);
 
@@ -462,6 +489,45 @@ function showGameOverScreen() {
       history: state.history,
     },
     onRestart: () => startNewGame(),
+  });
+}
+
+/**
+ * Launch a mini-game. Returns a promise that resolves with the result.
+ */
+function launchMinigame(type, config = {}) {
+  return new Promise(resolve => {
+    let game;
+    switch (type) {
+      case 'zombie-escape':
+        game = new ZombieEscape();
+        break;
+      case 'scavenge':
+        game = new Scavenge();
+        break;
+      case 'hunting':
+        game = new Hunting();
+        break;
+      case 'river-crossing':
+        game = new RiverCrossing();
+        break;
+      default:
+        resolve({ success: false, score: 0 });
+        return;
+    }
+
+    game.onComplete = (result) => {
+      resolve(result);
+    };
+
+    // Apply config overrides
+    if (config.maxTime) game.maxTime = config.maxTime;
+    if (config.difficulty === 'hard') game.maxTime *= 0.7;
+    if (config.difficulty === 'easy') game.maxTime *= 1.3;
+
+    dispatch('SET_PHASE', PHASE.MINIGAME);
+    game.init();
+    game.start();
   });
 }
 
