@@ -803,6 +803,19 @@ body {
   margin-top: 8px;
 }
 
+.victory-ending-type {
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  color: var(--text-dim);
+  margin-top: 8px;
+  letter-spacing: 3px;
+}
+
+.fallen-names {
+  color: var(--accent-red);
+  font-style: italic;
+}
+
 .victory-narration {
   max-width: 600px;
   margin: 24px auto;

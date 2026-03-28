@@ -328,26 +328,25 @@ function setupVictoryScreen(data) {
   const content = document.getElementById('victory-content');
   if (!content) return;
 
-  const cureText = data.cureAlive
-    ? `${data.cureCarrierName} carries the cure. The scientists at the National Microbiology Lab can synthesize an antivirus. Humanity has a chance.`
-    : `The cure carrier didn't make it. But you did. And in Ottawa's lab, the scientists find something in YOUR blood — exposure to the carrier left traces. Enough to work with. Maybe.`;
+  const ending = data.ending || 'hopeful';
+  const endings = getEndingNarration(ending, data);
 
   content.innerHTML = `
     <div class="victory-header">
-      <h1>YOU MADE IT</h1>
+      <h1>${endings.title}</h1>
       <div class="victory-subtitle">Ottawa. ${data.stats?.turnsLived || 52} weeks. ${data.stats?.kmTraveled || 4400} km.</div>
+      <div class="victory-ending-type">${endings.type}</div>
     </div>
     <div class="victory-narration">
-      <p>The Parliament buildings stand scarred but unbroken. Behind them, the National Microbiology Lab hums with emergency generators. Armed guards — real, living guards — wave you through the checkpoint.</p>
-      <p>${cureText}</p>
-      <p>You made it. Against a 40% chance. Against AI overlords and zombie hordes and Canadian winter and your own despair. MASEDOG made it.</p>
-      <p>The world isn't saved yet. But for the first time in a year, it could be.</p>
+      ${endings.paragraphs.map(p => `<p>${p}</p>`).join('')}
     </div>
     <div class="victory-stats">
       <h3>Journey Summary:</h3>
       <div>Weeks survived: ${data.stats?.turnsLived || 0}</div>
       <div>Final party size: ${data.stats?.partySize || 0}</div>
       <div>Distance: ${data.stats?.kmTraveled || 0} km</div>
+      ${data.stats?.partySurvivors?.length > 0 ? `<div>Survivors: ${data.stats.partySurvivors.join(', ')}</div>` : ''}
+      ${data.stats?.partyDead?.length > 0 ? `<div class="fallen-names">Lost along the way: ${data.stats.partyDead.join(', ')}</div>` : ''}
     </div>
     <div class="victory-history">
       <h3>Your Story:</h3>
@@ -362,6 +361,75 @@ function setupVictoryScreen(data) {
       if (data.onRestart) data.onRestart();
     };
   }
+}
+
+function getEndingNarration(ending, data) {
+  const name = data.cureCarrierName || 'the carrier';
+
+  const ENDINGS = {
+    golden: {
+      title: 'A NEW DAWN',
+      type: 'THE GOLDEN ENDING',
+      paragraphs: [
+        'The gates of the National Microbiology Lab open before you. Real soldiers — human, breathing, ALIVE — lower their weapons and stare. They weren\'t expecting survivors. Not anymore.',
+        `${name} steps forward, arm outstretched. "I\'m immune," they say quietly. The lead scientist\'s eyes go wide. Within hours, blood is drawn. Tests are run. And for the first time in a year, someone in a lab coat smiles.`,
+        'The cure will take months to synthesize and distribute. But it will happen. Because you walked 4,400 kilometers through hell, and you brought hope with you.',
+        'MASEDOG didn\'t just survive the Dead North. MASEDOG saved the world.',
+      ],
+    },
+    hopeful: {
+      title: 'YOU MADE IT',
+      type: 'THE HOPEFUL ENDING',
+      paragraphs: [
+        'Parliament Hill rises against a grey sky, scarred by fire and fighting but still standing. Behind it, the lab\'s emergency generators hum — a sound like a heartbeat.',
+        `${name} carries the cure in their blood. The scientists work through the night. It\'s not over — it won\'t be over for a long time — but the first step is taken.`,
+        'You sit on the steps of Parliament and watch the sun set over a broken city. Behind you, the people you carried across a continent. Ahead, the faint outline of tomorrow.',
+        'The Dead North didn\'t kill you. And now, maybe, it doesn\'t have to kill anyone else.',
+      ],
+    },
+    pyrrhic: {
+      title: 'THE COST',
+      type: 'A PYRRHIC VICTORY',
+      paragraphs: [
+        'You made it. God help you, you actually made it.',
+        `But the victory feels hollow. You carried ${name} across 4,400 kilometers, and the scientists are already working on a cure. The world might survive. But look behind you — look at who isn\'t here.`,
+        'The empty spaces where friends stood. The names you whisper at night. The choices that haunt you. Every single one of them bought you one more step east.',
+        'Was it worth it? You\'ll spend the rest of your life answering that question. The world will say yes. You\'re not so sure.',
+      ],
+    },
+    sacrifice: {
+      title: 'THE SACRIFICE',
+      type: 'THE SACRIFICE ENDING',
+      paragraphs: [
+        'The cure carrier didn\'t make it to Ottawa. But they didn\'t die for nothing.',
+        'Before the end, you collected what you could — blood samples, tissue, notes from every doctor you met along the way. It\'s not much. It\'s barely anything.',
+        'But the scientists at the lab look at what you brought them and they don\'t say "it\'s hopeless." They say "we can work with this." And in the apocalypse, that\'s everything.',
+        'You stood at the grave of someone who could have saved the world, and you carried their legacy the rest of the way. That has to mean something.',
+      ],
+    },
+    defiant: {
+      title: 'DEFIANT',
+      type: 'THE DEFIANT ENDING',
+      paragraphs: [
+        'There is no cure. The carrier is gone. The AI\'s broadcast echoes in your memory: "Your time is over."',
+        'But you\'re still here. Standing in Ottawa. Alive. And you\'re not the only one — the lab is a fortress now, filled with survivors who refused to die. Engineers. Soldiers. Doctors. Farmers. People.',
+        'You stood in front of a screen and told an artificial god that humanity wasn\'t finished. And then you walked 4,400 kilometers to prove it.',
+        'The cure may come another way. Or it may not. But as long as people like MASEDOG keep putting one foot in front of the other, the Dead North hasn\'t won.',
+      ],
+    },
+    bittersweet: {
+      title: 'STILL STANDING',
+      type: 'A BITTERSWEET ENDING',
+      paragraphs: [
+        'Ottawa. You\'re here. After everything — the hospital, the highway, the winter, the horde — you\'re standing on Parliament Hill watching the sun come up.',
+        'The cure carrier didn\'t make it. That knowledge sits in your chest like a stone. But the lab is working. They have data. They have samples from infected tissue you brought. They have brilliant, desperate people who haven\'t given up.',
+        'And they have you. A 20-year-old who walked across a country full of monsters and lived to tell the story.',
+        'It\'s not the ending you hoped for. But it\'s not the end.',
+      ],
+    },
+  };
+
+  return ENDINGS[ending] || ENDINGS.bittersweet;
 }
 
 /**

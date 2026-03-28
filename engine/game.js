@@ -20,6 +20,14 @@ import { CRISIS_EVENTS } from '../data/events/encounter-crisis.js';
 import { STORY_EVENTS } from '../data/events/encounter-story.js';
 import { SPECIAL_EVENTS } from '../data/events/encounter-special.js';
 import { NEW_COMBAT_EVENTS, NEW_SCAVENGE_EVENTS, NEW_SOCIAL_EVENTS, NEW_CRISIS_EVENTS, NEW_STORY_EVENTS } from '../data/events/encounter-new.js';
+import { EXPANSION_COMBAT, EXPANSION_SCAVENGE, EXPANSION_SOCIAL, EXPANSION_CRISIS, EXPANSION_TRAVEL, EXPANSION_WINTER } from '../data/events/encounter-expansion.js';
+import { CHAPTER_1_EVENTS } from '../data/story/chapter-1.js';
+import { CHAPTER_2_EVENTS } from '../data/story/chapter-2.js';
+import { CHAPTER_3_EVENTS } from '../data/story/chapter-3.js';
+import { CHAPTER_4_EVENTS } from '../data/story/chapter-4.js';
+import { CHAPTER_5_EVENTS } from '../data/story/chapter-5.js';
+import { CHAPTER_6_EVENTS } from '../data/story/chapter-6.js';
+import { EPILOGUE_EVENTS } from '../data/story/epilogue.js';
 import { PROLOGUE } from '../data/story/prologue.js';
 import { getCurrentWaypoint, getNextWaypoint, getProgress } from '../data/locations.js';
 import { getSeasonNarration, getMonthName } from '../data/seasons.js';
@@ -38,6 +46,19 @@ registerEvents(NEW_SCAVENGE_EVENTS);
 registerEvents(NEW_SOCIAL_EVENTS);
 registerEvents(NEW_CRISIS_EVENTS);
 registerEvents(NEW_STORY_EVENTS);
+registerEvents(EXPANSION_COMBAT);
+registerEvents(EXPANSION_SCAVENGE);
+registerEvents(EXPANSION_SOCIAL);
+registerEvents(EXPANSION_CRISIS);
+registerEvents(EXPANSION_TRAVEL);
+registerEvents(EXPANSION_WINTER);
+registerEvents(CHAPTER_1_EVENTS);
+registerEvents(CHAPTER_2_EVENTS);
+registerEvents(CHAPTER_3_EVENTS);
+registerEvents(CHAPTER_4_EVENTS);
+registerEvents(CHAPTER_5_EVENTS);
+registerEvents(CHAPTER_6_EVENTS);
+registerEvents(EPILOGUE_EVENTS);
 
 let prologuePhase = 'intro';
 
@@ -432,6 +453,34 @@ function showGameOverScreen() {
 }
 
 /**
+ * Determine which ending variant to show based on flags and state.
+ */
+function determineEnding() {
+  const state = getState();
+  const cureCarrier = state.party.find(c => c.isCureCarrier);
+  const cureAlive = cureCarrier ? cureCarrier.isAlive : false;
+  const partyAlive = state.party.filter(c => c.isAlive).length;
+  const flags = state.flags;
+
+  if (cureAlive && partyAlive >= 2 && flags.cassidy_parents_alive) {
+    return 'golden'; // Best ending — cure delivered, family reunited
+  }
+  if (cureAlive && partyAlive <= 1) {
+    return 'pyrrhic'; // Victory but at terrible cost
+  }
+  if (!cureAlive && flags.carrier_sacrifice) {
+    return 'sacrifice'; // Carrier died to buy time for a partial cure
+  }
+  if (!cureAlive && flags.defied_ai) {
+    return 'defiant'; // No cure but humanity fights on
+  }
+  if (cureAlive) {
+    return 'hopeful'; // Standard good ending
+  }
+  return 'bittersweet'; // Made it but no cure carrier
+}
+
+/**
  * Show victory screen.
  */
 function showVictoryScreen() {
@@ -439,13 +488,19 @@ function showVictoryScreen() {
   const cureCarrier = state.party.find(c => c.isCureCarrier);
   const cureAlive = cureCarrier ? cureCarrier.isAlive : false;
 
+  const ending = determineEnding();
+
   showScreen('victory', {
     cureAlive,
     cureCarrierName: cureCarrier?.name || 'Unknown',
+    ending,
+    flags: state.flags,
     stats: {
       turnsLived: state.meta.turnNumber,
       kmTraveled: state.journey.currentKm,
       partySize: getPartySize(),
+      partySurvivors: state.party.filter(c => c.isAlive).map(c => c.name),
+      partyDead: state.party.filter(c => !c.isAlive).map(c => c.name),
       history: state.history,
     },
     onRestart: () => startNewGame(),
