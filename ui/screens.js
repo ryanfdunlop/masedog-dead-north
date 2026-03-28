@@ -535,7 +535,7 @@ function renderOtherActions(area, container, campData) {
       html += `<button class="skill-train-btn" data-skill="${skill}">${skill} (${level})<br><span style="font-size:6px; color:#666">${xp}/${threshold} XP</span></button>`;
     }
     html += `</div>`;
-    container.querySelector('#tab-actions').innerHTML = `<div class="camp-section">${html}</div>`;
+    document.getElementById('tab-actions').innerHTML = `<div class="camp-section">${html}</div>`;
 
     container.querySelectorAll('.skill-train-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -559,7 +559,7 @@ function renderOtherActions(area, container, campData) {
     }
     html += `</div>`;
     html += `<p style="color:var(--text-dim); font-size:12px; margin-top:8px;">Click the GIVER first, then the RECEIVER.</p>`;
-    container.querySelector('#tab-actions').innerHTML = `<div class="camp-section">${html}</div>`;
+    document.getElementById('tab-actions').innerHTML = `<div class="camp-section">${html}</div>`;
 
     let fromId = null;
     container.querySelectorAll('[data-char-id]').forEach(card => {
@@ -590,7 +590,7 @@ function renderOtherActions(area, container, campData) {
       </button>`;
     }
     html += `</div>`;
-    container.querySelector('#tab-actions').innerHTML = `<div class="camp-section">${html}</div>`;
+    document.getElementById('tab-actions').innerHTML = `<div class="camp-section">${html}</div>`;
 
     container.querySelectorAll('[data-med-target]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -612,7 +612,7 @@ function showFinalResult(container, messages, campData) {
     html += `<div style="color: var(--accent-orange); margin-bottom: 4px;">${msg}</div>`;
   }
   html += `<button class="btn-continue" id="btn-action-done" style="margin-top: 16px;">CONTINUE JOURNEY</button></div>`;
-  container.querySelector('#tab-actions').innerHTML = html;
+  document.getElementById('tab-actions').innerHTML = html;
   updateHUD();
 
   document.getElementById('btn-action-done')?.addEventListener('click', () => {
