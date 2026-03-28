@@ -93,8 +93,8 @@ export function startNewGame(seed) {
   // Load real sound files in background (non-blocking, fire-and-forget)
   try {
     const ctx2 = new (window.AudioContext || window.webkitAudioContext)();
-    const sfx2 = ctx2.createGain(); sfx2.gain.value = 0.3; sfx2.connect(ctx2.destination);
-    const mus2 = ctx2.createGain(); mus2.gain.value = 0.12; mus2.connect(ctx2.destination);
+    const sfx2 = ctx2.createGain(); sfx2.gain.value = 0.5; sfx2.connect(ctx2.destination);
+    const mus2 = ctx2.createGain(); mus2.gain.value = 0.2; mus2.connect(ctx2.destination);
     initSoundbank(ctx2, sfx2, mus2);
     loadSounds().then(() => {
       if (isLoaded()) {
