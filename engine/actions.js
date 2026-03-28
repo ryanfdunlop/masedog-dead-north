@@ -32,13 +32,18 @@ export function getResourceActions() {
   const isUrban = ['vancouver', 'alberta', 'manitoba', 'ontario_south', 'ottawa_approach'].includes(region);
   const isWinter = season === 'winter';
 
+  // VS MODE: Both sides roll 2d6. Zombie gets a small bonus.
+  // zombieEdge = how many bonus points the zombie adds to their 2d6.
+  // zombieEdge 0 = 50/50, +1 = ~40% player, +2 = ~30%, +3 = ~20%
+  // Each consecutive roll adds +1 to zombie edge (they get alerted)
+  // Roll 1: base edge. Roll 2: +1. Roll 3: +2. Roll 4: +3.
   return [
     {
       id: 'water',
       name: 'Scout for Water',
       icon: '💧',
       reward: { type: 'water', min: 2, max: isWinter ? 3 : 5 },
-      difficulty: isWinter ? 8 : 5, // Target number on 2d6
+      zombieEdge: isWinter ? 2 : 0,
       description: isWinter ? 'Melt snow and ice for water.' : 'Search for streams or stored water.',
     },
     {
@@ -46,7 +51,7 @@ export function getResourceActions() {
       name: 'Hunt & Forage',
       icon: '🍖',
       reward: { type: 'food', min: 2, max: isWinter ? 3 : 5 },
-      difficulty: isWinter ? 9 : 6,
+      zombieEdge: isWinter ? 2 : 0,
       description: isWinter ? 'Set traps in the snow.' : 'Hunt game or gather supplies.',
     },
     {
@@ -54,7 +59,7 @@ export function getResourceActions() {
       name: 'Medical Supply Run',
       icon: '💊',
       reward: { type: 'medicine', min: 1, max: isUrban ? 3 : 2 },
-      difficulty: isUrban ? 6 : 9,
+      zombieEdge: isUrban ? 0 : 2,
       description: isUrban ? 'Raid a pharmacy or clinic.' : 'Search farmhouses for first aid.',
     },
     {
@@ -62,7 +67,7 @@ export function getResourceActions() {
       name: 'Scavenge Ammo',
       icon: '🔫',
       reward: { type: 'ammo', min: 2, max: isUrban ? 6 : 3 },
-      difficulty: isUrban ? 6 : 8,
+      zombieEdge: isUrban ? 0 : 1,
       description: isUrban ? 'Check police cars, gun stores.' : 'Search hunting cabins.',
     },
     {
@@ -70,7 +75,7 @@ export function getResourceActions() {
       name: 'Salvage Materials',
       icon: '🔧',
       reward: { type: 'scrap', min: 2, max: 5 },
-      difficulty: 5,
+      zombieEdge: 0,
       description: 'Pull apart wreckage for useful parts.',
     },
     {
@@ -78,7 +83,7 @@ export function getResourceActions() {
       name: 'Rest & Recover',
       icon: '🛏️',
       reward: { type: 'health', min: 8, max: 20 },
-      difficulty: 4, // Easier but still risky if you push it
+      zombieEdge: 0,
       description: 'Find shelter and rest. Recover HP.',
     },
   ];
@@ -95,11 +100,10 @@ export function rollForResource(action, rollNumber) {
   const die2 = trueRandInt(1, 6);
   const total = die1 + die2;
 
-  // Difficulty increases with each consecutive roll
-  // Roll 1: base difficulty, Roll 2: +2, Roll 3: +3, Roll 4: +4, etc.
-  const adjustedDifficulty = action.difficulty + Math.max(0, (rollNumber - 1) * 2);
-
-  const success = total >= adjustedDifficulty;
+  // In VS mode, success is determined by the VS dice roll in the UI.
+  // This function just generates the reward amounts.
+  // The zombieEdge + rollNumber escalation is handled in the UI.
+  const success = true; // Always returns reward; UI decides if the roll won
 
   let reward = null;
   if (success) {

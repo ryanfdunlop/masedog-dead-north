@@ -516,7 +516,7 @@ function easeOutCubic(t) {
 // ========== EXPORTS FOR OTHER MODULES ==========
 
 /**
- * Calculate success chance for display.
+ * Calculate success chance for skill checks (2d6+bonus vs target).
  */
 export function calculateSuccessChance(bonus, target, numRolls = 1) {
   const needed = target - bonus;
@@ -529,6 +529,21 @@ export function calculateSuccessChance(bonus, target, numRolls = 1) {
     }
   }
   return Math.round((successes / 36) * 100);
+}
+
+/**
+ * Calculate win chance in VS mode (your 2d6 vs enemy 2d6 + enemyBonus).
+ * Exact enumeration of all 1296 dice combinations.
+ */
+export function calculateVSChance(playerBonus, enemyBonus) {
+  let wins = 0;
+  const total = 36 * 36; // 1296
+  for (let a1 = 1; a1 <= 6; a1++)
+    for (let b1 = 1; b1 <= 6; b1++)
+      for (let a2 = 1; a2 <= 6; a2++)
+        for (let b2 = 1; b2 <= 6; b2++)
+          if ((a1 + b1 + playerBonus) > (a2 + b2 + enemyBonus)) wins++;
+  return Math.round((wins / total) * 100);
 }
 
 /**

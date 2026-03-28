@@ -18,7 +18,7 @@ import {
   applyGains, applyLosses, getShareOptions, transferHealth,
   useMedicineOn, trainSkill,
 } from '../engine/actions.js';
-import { calculateSuccessChance, convertDCtoTarget, getRollCount, rollDice, rollDiceVS } from './dice.js';
+import { calculateSuccessChance, calculateVSChance, convertDCtoTarget, getRollCount, rollDice, rollDiceVS } from './dice.js';
 
 let screens = {};
 let hudEl = null;
@@ -295,16 +295,19 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
   `;
 
   for (const action of actions) {
-    const difficulty = action.difficulty + Math.max(0, rollNumber * 2);
-    const chance = calculateSuccessChance(0, difficulty, 1);
-    const chanceClass = chance >= 65 ? 'high' : chance >= 40 ? 'medium' : 'low';
+    // Zombie edge grows each roll: base + rollNumber
+    const edge = (action.zombieEdge || 0) + rollNumber;
+    // VS chance: your 2d6 vs zombie 2d6+edge
+    const chance = calculateVSChance(0, edge);
+    const chanceClass = chance >= 50 ? 'high' : chance >= 30 ? 'medium' : 'low';
+    const edgeLabel = edge === 0 ? 'Even odds' : `Zombie +${edge}`;
 
     html += `
       <button class="camp-action-btn push-luck-btn" data-action-id="${action.id}">
         <div class="camp-action-icon">${action.icon}</div>
         <div class="camp-action-name">${action.name}</div>
         <div class="camp-action-desc">${action.description}</div>
-        <div class="camp-action-chance ${chanceClass}">${chance}% — need ${difficulty}+ on 2d6</div>
+        <div class="camp-action-chance ${chanceClass}">🎲 ${chance}% win — ${edgeLabel}</div>
       </button>
     `;
   }
@@ -324,14 +327,14 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
       const action = actions.find(a => a.id === actionId);
       if (!action) return;
 
-      // Zombie gets stronger each consecutive roll
-      const zombiePower = action.difficulty + Math.max(0, rollNumber * 2);
+      // Zombie edge grows each roll
+      const edge = (action.zombieEdge || 0) + rollNumber;
 
       // VS DICE BATTLE — white dice vs red dice!
       const vsResult = await rollDiceVS({
         label: `${action.icon} ${action.name} vs ZOMBIES`,
-        playerBonus: 0,  // Pure luck — no skill bonus on push-your-luck
-        enemyBonusVal: zombiePower,
+        playerBonus: 0,
+        enemyBonusVal: edge,
         enemyName: rollNumber >= 3 ? 'ZOMBIE HORDE' : rollNumber >= 1 ? 'ZOMBIES' : 'ZOMBIE SCOUT',
       });
 
@@ -358,7 +361,7 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
             <div class="luck-result success">
               <div class="luck-result-icon">🎯</div>
               <div>DOUBLE SIXES! You crushed them! Won ${wonAmount} ${reward.type}!</div>
-              <div style="font-size:10px; margin-top:4px;">Your ${vsResult.total} demolished their ${vsResult.enemyTotal + zombiePower}</div>
+              <div style="font-size:10px; margin-top:4px;">Your ${vsResult.total} demolished their ${vsResult.enemyTotal + edge}</div>
             </div>
           `;
         } else {
@@ -366,7 +369,7 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
             <div class="luck-result success">
               <div class="luck-result-icon">${action.icon}</div>
               <div>You beat the zombies! Won ${wonAmount} ${reward.type}!</div>
-              <div style="font-size:10px; margin-top:4px;">You: ${vsResult.playerTotal} vs Zombie: ${vsResult.enemyTotal + zombiePower}</div>
+              <div style="font-size:10px; margin-top:4px;">You: ${vsResult.playerTotal} vs Zombie: ${vsResult.enemyTotal + edge}</div>
             </div>
           `;
         }
@@ -381,7 +384,7 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
         const lossMessages = applyLosses(losses);
 
         // Zombie damage based on how badly they beat you
-        const margin = (vsResult.enemyTotal + zombiePower) - vsResult.total;
+        const margin = (vsResult.enemyTotal + edge) - vsResult.total;
         let extraDmg = 0;
         let hordeDesc = '';
 
@@ -406,7 +409,7 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
           <div class="luck-result failure">
             <div class="luck-result-icon">💀</div>
             <div>ZOMBIES WIN! ${hordeDesc}</div>
-            <div style="font-size:10px; margin-top:4px;">You: ${vsResult.playerTotal} vs Zombie: ${vsResult.enemyTotal + zombiePower}</div>
+            <div style="font-size:10px; margin-top:4px;">You: ${vsResult.playerTotal} vs Zombie: ${vsResult.enemyTotal + edge}</div>
           </div>
           <div class="luck-losses">
             <div>The horde raids your supplies (${lossPercent}% lost):</div>
