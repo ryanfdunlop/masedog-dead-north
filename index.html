@@ -65,10 +65,14 @@
   <script type="module">
     import { initScreens } from './ui/screens.js';
     import { showTitle } from './engine/game.js';
+    import { loadSettings } from './engine/settings.js';
+    import { initTimer } from './ui/timer.js';
 
     // Initialize when DOM is ready
     document.addEventListener('DOMContentLoaded', () => {
+      loadSettings();
       initScreens();
+      initTimer();
       showTitle();
     });
   </script>

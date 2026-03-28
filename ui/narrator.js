@@ -4,6 +4,8 @@
 // ============================================================
 
 import { calculateSuccessChance, convertDCtoTarget, getRollCount } from './dice.js';
+import { isTimerEnabled, getTimerDuration } from '../engine/settings.js';
+import { startChoiceTimer, stopChoiceTimer } from './timer.js';
 
 const CHAR_DELAY = 25;  // ms per character for typewriter
 const LINE_DELAY = 200; // ms pause between lines
@@ -127,12 +129,40 @@ export function typeText(text) {
 
 /**
  * Show choice buttons. Calls callback with the chosen option.
+ *
+ * If any choice has a `timed` property ('urgent' | 'tense' | 'normal'),
+ * the entire choice set gets a countdown timer using the most urgent
+ * value found. When the timer expires, the LAST choice (worst option)
+ * is auto-selected.
  */
 export function showChoices(choices, callback) {
   if (!choicesEl) return;
 
   choicesEl.innerHTML = '';
   choicesEl.style.display = 'flex';
+
+  // Determine if this is a timed choice set
+  const urgencyRank = { urgent: 3, tense: 2, normal: 1 };
+  let highestUrgency = null;
+
+  for (const choice of choices) {
+    if (choice.timed && urgencyRank[choice.timed]) {
+      if (!highestUrgency || urgencyRank[choice.timed] > urgencyRank[highestUrgency]) {
+        highestUrgency = choice.timed;
+      }
+    }
+  }
+
+  // Wrap callback to also stop the timer
+  let choiceMade = false;
+  function onChoiceMade(choice) {
+    if (choiceMade) return; // Prevent double-fire
+    choiceMade = true;
+    stopChoiceTimer();
+    document.removeEventListener('keydown', onKey);
+    choicesEl.style.display = 'none';
+    callback(choice);
+  }
 
   choices.forEach((choice, index) => {
     const btn = document.createElement('button');
@@ -169,8 +199,7 @@ export function showChoices(choices, callback) {
     }
 
     btn.addEventListener('click', () => {
-      choicesEl.style.display = 'none';
-      callback(choice);
+      onChoiceMade(choice);
     });
 
     choicesEl.appendChild(btn);
@@ -180,12 +209,22 @@ export function showChoices(choices, callback) {
   function onKey(e) {
     const num = parseInt(e.key);
     if (num >= 1 && num <= choices.length) {
-      document.removeEventListener('keydown', onKey);
-      choicesEl.style.display = 'none';
-      callback(choices[num - 1]);
+      onChoiceMade(choices[num - 1]);
     }
   }
   document.addEventListener('keydown', onKey);
+
+  // Start timed countdown if applicable
+  if (highestUrgency && isTimerEnabled()) {
+    const seconds = getTimerDuration(highestUrgency);
+    if (seconds > 0) {
+      startChoiceTimer(seconds, () => {
+        // Timer expired — auto-select the LAST choice (worst option)
+        const worstChoice = choices[choices.length - 1];
+        onChoiceMade(worstChoice);
+      });
+    }
+  }
 }
 
 /**

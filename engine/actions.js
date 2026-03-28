@@ -116,7 +116,7 @@ export function rollForResource(action, rollNumber) {
     die1,
     die2,
     total,
-    target: adjustedDifficulty,
+    target: 0,
     reward,
     critSuccess: die1 === 6 && die2 === 6,
     critFail: die1 === 1 && die2 === 1,
@@ -147,7 +147,28 @@ export function calculateFailPenalty(gainedResources, rollNumber) {
   if (extraLoss > 0 && state.resources.food > 0) losses.food = (losses.food || 0) + extraLoss;
   if (extraLoss > 0 && state.resources.water > 0) losses.water = (losses.water || 0) + extraLoss;
 
-  return { losses, lossPercent: Math.round(lossPercent * 100) };
+  // If player has nothing to lose, zombies inflict DAMAGE instead (10-25% HP)
+  const totalLossValue = Object.values(losses).reduce((a, b) => a + b, 0);
+  let healthDamage = 0;
+  if (totalLossValue === 0) {
+    // Random 10-25% of max health
+    healthDamage = Math.round(state.player.maxHealth * (0.1 + trueRandom() * 0.15));
+  }
+
+  // Random chance zombies also hurt party members
+  const living = getLivingParty();
+  const partyDamage = [];
+  if (rollNumber >= 2 && living.length > 0) {
+    // Pick 1-2 random party members to take damage
+    const numHurt = Math.min(living.length, trueRandInt(1, Math.min(3, rollNumber)));
+    for (let i = 0; i < numHurt; i++) {
+      const target = living[trueRandInt(0, living.length - 1)];
+      const dmg = trueRandInt(5, 15);
+      partyDamage.push({ id: target.id, name: target.name, damage: dmg });
+    }
+  }
+
+  return { losses, lossPercent: Math.round(lossPercent * 100), healthDamage, partyDamage };
 }
 
 /**

@@ -37,6 +37,7 @@ import { typeText, showChoices, clearNarration, showResults } from '../ui/narrat
 import { initTransitions, fadeTransition, damageFlash, screenShake, glitchEffect } from '../ui/transitions.js';
 import { initEffects, setWeatherEffect, applyDayNightTint, setLocationTheme } from '../ui/effects.js';
 import { initScenes, setScene, getSceneForContext } from '../ui/scenes.js';
+import { triggerVisual } from '../ui/jumpscares.js';
 import {
   initAudio, resumeAudio, playUIClick, playSuccess, playFailure,
   playZombieGroan, playShotgun, playHeartbeat, playScreamerShriek,
@@ -343,6 +344,11 @@ async function runEvent(event) {
   const eventScene = event.scene // Events can specify a scene directly
     || getSceneForContext(region, state.calendar.season, event.type);
   setScene(eventScene);
+
+  // Trigger visual effect if event specifies one
+  if (event.visual) {
+    await triggerVisual(event.visual);
+  }
 
   if (event.title) {
     await typeText(`\n--- ${event.title} ---\n`);

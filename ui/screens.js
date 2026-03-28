@@ -19,6 +19,7 @@ import {
   useMedicineOn, trainSkill,
 } from '../engine/actions.js';
 import { calculateSuccessChance, calculateVSChance, convertDCtoTarget, getRollCount, rollDice, rollDiceVS } from './dice.js';
+import { getSettings, updateSetting, loadSettings } from '../engine/settings.js';
 
 let screens = {};
 let hudEl = null;
@@ -135,6 +136,7 @@ function setupCampScreen(data) {
       <button class="camp-tab" data-tab="party">PARTY</button>
       <button class="camp-tab" data-tab="map">MAP</button>
       <button class="camp-tab" data-tab="save">SAVE</button>
+      <button class="camp-tab" data-tab="settings">SETTINGS</button>
     </div>
 
     <div class="camp-tab-content" id="tab-status">
@@ -172,6 +174,7 @@ function setupCampScreen(data) {
     <div class="camp-tab-content hidden" id="tab-party"></div>
     <div class="camp-tab-content hidden" id="tab-map"></div>
     <div class="camp-tab-content hidden" id="tab-save"></div>
+    <div class="camp-tab-content hidden" id="tab-settings"></div>
 
     <button class="btn-continue" id="btn-continue-turn">CONTINUE JOURNEY</button>
   `;
@@ -194,6 +197,8 @@ function setupCampScreen(data) {
         renderMap(document.getElementById('tab-map'));
       } else if (tab.dataset.tab === 'save') {
         renderSaveTab(document.getElementById('tab-save'));
+      } else if (tab.dataset.tab === 'settings') {
+        renderSettingsTab(document.getElementById('tab-settings'));
       }
     });
   });
@@ -210,6 +215,7 @@ function renderActionsTab(container, campData) {
   const state = getState();
 
   container.innerHTML = `
+    <div id="luck-stats-panel"></div>
     <div class="camp-section">
       <h3>PUSH YOUR LUCK</h3>
       <p style="color: var(--text-dim); font-size: 14px; margin-bottom: 8px;">
@@ -226,11 +232,34 @@ function renderActionsTab(container, campData) {
     </div>
   `;
 
+  // Render persistent stats panel
+  refreshStatsPanel();
+
   renderPushYourLuck(document.getElementById('push-luck-area'), campData);
   renderOtherActions(document.getElementById('other-actions'), container, campData);
 }
 
 // ========== PUSH YOUR LUCK ==========
+
+function refreshStatsPanel() {
+  const panel = document.getElementById('luck-stats-panel');
+  if (!panel) return;
+  const state = getState();
+  const r = state.resources;
+  panel.innerHTML = `
+    <div class="luck-live-stats">
+      <div class="luck-stats-header">YOUR CURRENT STATUS</div>
+      <div class="luck-stats-grid">
+        <div class="luck-stat"><span class="luck-stat-icon">❤️</span> HP: <strong>${state.player.health}</strong>/100</div>
+        <div class="luck-stat"><span class="luck-stat-icon">💧</span> Water: <strong>${r.water}</strong></div>
+        <div class="luck-stat"><span class="luck-stat-icon">🍖</span> Food: <strong>${r.food}</strong></div>
+        <div class="luck-stat"><span class="luck-stat-icon">💊</span> Medicine: <strong>${r.medicine}</strong></div>
+        <div class="luck-stat"><span class="luck-stat-icon">🔫</span> Ammo: <strong>${r.ammo}</strong></div>
+        <div class="luck-stat"><span class="luck-stat-icon">🔧</span> Scrap: <strong>${r.scrap}</strong></div>
+      </div>
+    </div>
+  `;
+}
 
 function renderPushYourLuck(area, campData) {
   const actions = getResourceActions();
@@ -244,23 +273,8 @@ function renderPushYourLuck(area, campData) {
 function showResourcePicker(area, actions, gained, rollNumber, sessionActive, campData) {
   if (!sessionActive) return;
 
-  const state = getState();
-  const resources = state.resources;
-
-  // LIVE STATS PANEL — shows current resources and what you've won this session
-  const liveStatsHtml = `
-    <div class="luck-live-stats">
-      <div class="luck-stats-header">YOUR CURRENT STATUS</div>
-      <div class="luck-stats-grid">
-        <div class="luck-stat"><span class="luck-stat-icon">❤️</span> HP: <strong>${state.player.health}</strong>/100</div>
-        <div class="luck-stat"><span class="luck-stat-icon">💧</span> Water: <strong>${resources.water}</strong></div>
-        <div class="luck-stat"><span class="luck-stat-icon">🍖</span> Food: <strong>${resources.food}</strong></div>
-        <div class="luck-stat"><span class="luck-stat-icon">💊</span> Medicine: <strong>${resources.medicine}</strong></div>
-        <div class="luck-stat"><span class="luck-stat-icon">🔫</span> Ammo: <strong>${resources.ammo}</strong></div>
-        <div class="luck-stat"><span class="luck-stat-icon">🔧</span> Scrap: <strong>${resources.scrap}</strong></div>
-      </div>
-    </div>
-  `;
+  // Refresh the persistent stats panel
+  refreshStatsPanel();
 
   // Show what's been gained so far
   let gainedHtml = '';
@@ -288,7 +302,6 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
   }
 
   let html = `
-    ${liveStatsHtml}
     ${gainedHtml}
     ${riskHtml}
     <div class="camp-actions-grid">
@@ -355,6 +368,7 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
         // APPLY IMMEDIATELY so stats update in real-time
         applyGains({ [reward.type]: wonAmount });
         updateHUD();
+        refreshStatsPanel();
 
         if (vsResult.critSuccess) {
           area.innerHTML = `
@@ -379,11 +393,10 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
 
       } else {
         // ZOMBIES WIN — they raid your supplies!
-        // Gains were already applied on each win, so losses subtract directly
-        const { losses, lossPercent } = calculateFailPenalty(gained, rollNumber);
+        const { losses, lossPercent, healthDamage, partyDamage } = calculateFailPenalty(gained, rollNumber);
         const lossMessages = applyLosses(losses);
 
-        // Zombie damage based on how badly they beat you
+        // Margin-based damage
         const margin = (vsResult.enemyTotal + edge) - vsResult.total;
         let extraDmg = 0;
         let hordeDesc = '';
@@ -401,8 +414,23 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
           hordeDesc = 'A close call — you escape but drop some supplies!';
         }
 
+        // If no supplies to lose, zombies inflict direct damage
+        if (healthDamage > 0) {
+          extraDmg += healthDamage;
+          hordeDesc += ' With nothing to take, they attack YOU!';
+        }
+
         if (extraDmg > 0) {
           dispatch('UPDATE_PLAYER_HEALTH', -extraDmg);
+        }
+
+        // Party member damage
+        let partyDmgHtml = '';
+        if (partyDamage && partyDamage.length > 0) {
+          for (const pd of partyDamage) {
+            dispatch('UPDATE_CHARACTER', { id: pd.id, changes: { health: -pd.damage } });
+            partyDmgHtml += `<div class="luck-loss-item">${pd.name} takes ${pd.damage} damage!</div>`;
+          }
         }
 
         let failHtml = `
@@ -414,7 +442,8 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
           <div class="luck-losses">
             <div>The horde raids your supplies (${lossPercent}% lost):</div>
             ${lossMessages.map(m => `<div class="luck-loss-item">${m}</div>`).join('')}
-            ${extraDmg > 0 ? `<div class="luck-loss-item">Took ${extraDmg} damage in the scramble!</div>` : ''}
+            ${extraDmg > 0 ? `<div class="luck-loss-item">You took ${extraDmg} damage!</div>` : ''}
+            ${partyDmgHtml}
         `;
 
         const netGains = {};
@@ -432,6 +461,7 @@ function showResourcePicker(area, actions, gained, rollNumber, sessionActive, ca
 
         area.innerHTML = failHtml;
         updateHUD();
+        refreshStatsPanel();
 
         document.getElementById('btn-luck-done')?.addEventListener('click', () => {
           if (campData.onContinue) campData.onContinue();
@@ -648,6 +678,61 @@ function renderSaveTab(container) {
         // Refresh the camp screen
         showScreen('camp', { onContinue: () => {} });
       }
+    });
+  });
+}
+
+function renderSettingsTab(container) {
+  const settings = getSettings();
+
+  const timedOn = settings.timedChoices;
+  const speed = settings.timerSpeed;
+
+  const speedOptions = ['fast', 'normal', 'slow', 'relaxed', 'off'];
+
+  let html = `
+    <div class="camp-section">
+      <h3>GAME SETTINGS</h3>
+
+      <div class="settings-row">
+        <span class="settings-label">TIMED CHOICES</span>
+        <div class="settings-buttons">
+          <button class="settings-btn ${timedOn ? 'active' : ''}" data-setting="timedChoices" data-value="true">ON</button>
+          <button class="settings-btn ${!timedOn ? 'active' : ''}" data-setting="timedChoices" data-value="false">OFF</button>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <span class="settings-label">TIMER SPEED</span>
+        <div class="settings-buttons">
+          ${speedOptions.map(opt =>
+            `<button class="settings-btn ${speed === opt ? 'active' : ''}" data-setting="timerSpeed" data-value="${opt}">${opt.toUpperCase()}</button>`
+          ).join('')}
+        </div>
+      </div>
+
+      <div class="settings-hint">
+        FAST: 5-10s | NORMAL: 10-20s | SLOW: 20-30s | RELAXED: 60s | OFF: no timer
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+
+  // Wire up settings buttons
+  container.querySelectorAll('.settings-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.setting;
+      let value = btn.dataset.value;
+
+      // Convert string booleans
+      if (value === 'true') value = true;
+      else if (value === 'false') value = false;
+
+      updateSetting(key, value);
+
+      // Re-render to update active states
+      renderSettingsTab(container);
     });
   });
 }
