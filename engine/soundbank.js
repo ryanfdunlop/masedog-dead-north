@@ -175,65 +175,65 @@ export function isLoaded() {
 
 /** Play a random zombie growl with spatial panning */
 export function sbZombieGroan() {
-  return playRandom('growl', { volume: 0.15, panVal: (Math.random() - 0.5) * 1.4 });
+  return playRandom('growl', { volume: 0.19, panVal: (Math.random() - 0.5) * 1.4 });
 }
 
 /** Play a random combat hit */
 export function sbHit() {
-  return playRandom('hit', { volume: 0.12 });
+  return playRandom('hit', { volume: 0.15 });
 }
 
 /** Play a bass impact */
 export function sbBassImpact() {
-  return playRandom('bass', { volume: 0.15 });
+  return playRandom('bass', { volume: 0.19 });
 }
 
 /** Play a ghost/eerie presence sound */
 export function sbGhostNoise() {
-  return playRandom('ghost', { volume: 0.1, panVal: (Math.random() - 0.5) * 1.6 });
+  return playRandom('ghost', { volume: 0.13, panVal: (Math.random() - 0.5) * 1.6 });
 }
 
 /** Play a dark ambient SFX */
 export function sbDarkSFX() {
-  return playRandom('darksfx', { volume: 0.1 });
+  return playRandom('darksfx', { volume: 0.13 });
 }
 
 /** Play a tension riser (for dice rolls, dramatic moments) */
 export function sbRiser() {
-  return playRandom('riser', { volume: 0.12 });
+  return playRandom('riser', { volume: 0.15 });
 }
 
 /** Play a transition whoosh */
 export function sbWhoosh() {
-  return playRandom('whoosh', { volume: 0.1 });
+  return playRandom('whoosh', { volume: 0.13 });
 }
 
 /** Play a UI click */
 export function sbClick() {
-  return playRandom('click', { volume: 0.08 });
+  return playRandom('click', { volume: 0.1 });
 }
 
 /** Start a drone loop for ambient background */
 export function sbStartDrone(name = 'drone_1') {
-  return playSound(name, { volume: 0.04, loop: true, music: true });
+  return playSound(name, { volume: 0.05, loop: true, music: true });
 }
 
 /** Start a soundscape loop */
 export function sbStartSoundscape(name = 'soundscape_1') {
-  return playSound(name, { volume: 0.03, loop: true, music: true });
+  return playSound(name, { volume: 0.04, loop: true, music: true });
 }
 
 /** Start combat music loop */
 export function sbStartCombatLoop() {
-  return playRandom('combat_loop', { volume: 0.06, loop: true, music: true });
+  return playRandom('combat_loop', { volume: 0.08, loop: true, music: true });
 }
 
 /** Play a kick (heartbeat thud) */
 export function sbKick() {
-  return playRandom('kick', { volume: 0.12 });
+  return playRandom('kick', { volume: 0.15 });
 }
 
 /** Play a snap (gunshot layer) */
 export function sbSnap() {
-  return playRandom('snap', { volume: 0.12 });
+  return playRandom('snap', { volume: 0.15 });
 }
