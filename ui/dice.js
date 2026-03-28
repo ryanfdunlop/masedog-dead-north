@@ -186,16 +186,25 @@ function renderDice() {
     die1.angle = die1.targetAngle * easeOutCubic(spinProgress);
     die2.angle = die2.targetAngle * easeOutCubic(spinProgress);
 
-    // Show random faces during spin
-    if (spinProgress < 0.8) {
+    // Show random faces during spin, then lock to final values
+    if (spinProgress < 0.7) {
+      // Fast random cycling — looks like tumbling
       die1._displayValue = Math.floor(Math.random() * 6) + 1;
       die2._displayValue = Math.floor(Math.random() * 6) + 1;
+    } else if (spinProgress < 0.85) {
+      // Slow down — alternate between 2-3 values
+      die1._displayValue = [die1.value, ((die1.value % 6) + 1)][Math.floor(spinProgress * 10) % 2];
+      die2._displayValue = [die2.value, ((die2.value % 6) + 1)][Math.floor(spinProgress * 10) % 2];
     } else {
+      // Lock to final values — dice "land"
       die1._displayValue = die1.value;
       die2._displayValue = die2.value;
     }
 
     if (rollTimer > 1.5) {
+      // Ensure final values are locked before transitioning
+      die1._displayValue = die1.value;
+      die2._displayValue = die2.value;
       rollPhase = 2;
       rollTimer = 0;
     }
@@ -236,19 +245,30 @@ function onRollComplete() {
   rollResults.push(thisRoll);
   currentRollIndex++;
 
-  const totalSoFar = rollResults.reduce((a, b) => a + b, 0) + skillBonus;
+  // Force display values to match actual values (ensures dots match numbers)
+  die1._displayValue = die1.value;
+  die2._displayValue = die2.value;
 
-  // Update display
+  const diceOnly = rollResults.reduce((a, b) => a + b, 0);
+  const totalWithBonus = diceOnly + skillBonus;
+
+  // Update display — show dice faces clearly, then bonus separately
   const resultEl = document.getElementById('dice-result');
-  resultEl.innerHTML = `<span class="dice-roll-value">${die1.value} + ${die2.value} = ${thisRoll}</span>`;
+  resultEl.innerHTML = `
+    <div class="dice-roll-breakdown">
+      <span class="dice-face-label">Die 1: <strong>${die1.value}</strong></span>
+      <span class="dice-face-label">Die 2: <strong>${die2.value}</strong></span>
+      <span class="dice-roll-value">Dice total: ${thisRoll}</span>
+    </div>
+  `;
 
   if (currentRollIndex < rollsNeeded) {
     // More rolls needed
     const infoEl = document.getElementById('dice-info');
     infoEl.innerHTML = `
       <div class="dice-label">${rollInfoText}</div>
-      <div class="dice-target">Need: ${targetNumber}+ (running total: ${totalSoFar})</div>
-      <div class="dice-bonus">Skill bonus: +${skillBonus}</div>
+      <div class="dice-target">Need: ${targetNumber}+ to succeed</div>
+      <div class="dice-bonus">Dice so far: ${diceOnly} + Skill bonus: ${skillBonus} = ${totalWithBonus}</div>
       <div class="dice-rolls-left">Roll ${currentRollIndex + 1} of ${rollsNeeded}</div>
     `;
     document.getElementById('dice-roll-btn').textContent = `ROLL AGAIN (${rollsNeeded - currentRollIndex} left)`;
@@ -256,14 +276,18 @@ function onRollComplete() {
     rollPhase = 0;
   } else {
     // All rolls done — resolve
-    const total = totalSoFar;
+    const total = totalWithBonus;
     const success = total >= targetNumber;
+
+    // Build clear breakdown: each roll shown, then bonus, then total
+    const rollBreakdown = rollResults.map((r, i) => `Roll ${i + 1}: ${r}`).join('  |  ');
 
     resultEl.innerHTML = `
       <div class="dice-final">
-        <span class="dice-total">Total: ${rollResults.join(' + ')} + ${skillBonus} = ${total}</span>
-        <span class="dice-outcome ${success ? 'success' : 'failure'}">${success ? 'SUCCESS!' : 'FAILED'}</span>
-        <span class="dice-vs">vs target ${targetNumber}</span>
+        <div class="dice-breakdown-line">${rollBreakdown}</div>
+        <span class="dice-total">Dice: ${diceOnly} + Skill: ${skillBonus} = <strong>${total}</strong></span>
+        <span class="dice-outcome ${success ? 'success' : 'failure'}">${success ? 'SUCCESS!' : 'FAILED!'}</span>
+        <span class="dice-vs">Needed ${targetNumber} to pass</span>
       </div>
     `;
 

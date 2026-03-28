@@ -1006,8 +1006,33 @@ body.region-ottawa {
 
 .dice-roll-value {
   font-family: var(--font-pixel);
-  font-size: 20px;
+  font-size: 16px;
   color: var(--accent-yellow);
+  display: block;
+  margin-top: 4px;
+}
+
+.dice-roll-breakdown {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.dice-face-label {
+  font-size: 16px;
+  color: var(--text-dim);
+}
+
+.dice-face-label strong {
+  color: var(--text-primary);
+  font-size: 20px;
+}
+
+.dice-breakdown-line {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
 }
 
 .dice-final {
