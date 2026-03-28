@@ -48,6 +48,7 @@ import { Scavenge } from '../minigames/scavenge.js';
 import { Hunting } from '../minigames/hunting.js';
 import { RiverCrossing } from '../minigames/river-crossing.js';
 import { initDice, rollDice, rollDiceVS, calculateSuccessChance, convertDCtoTarget, getRollCount } from '../ui/dice.js';
+import { initSoundbank, loadSounds, sbZombieGroan, sbHit, sbRiser, sbWhoosh, sbGhostNoise, sbStartDrone, sbStartSoundscape, isLoaded } from './soundbank.js';
 // Actions are handled by ui/screens.js directly now
 
 // Register all events
@@ -89,6 +90,19 @@ export function startNewGame(seed) {
   initAudio();
   initDice();
   resumeAudio();
+  // Load real sound files in background (non-blocking, fire-and-forget)
+  try {
+    const ctx2 = new (window.AudioContext || window.webkitAudioContext)();
+    const sfx2 = ctx2.createGain(); sfx2.gain.value = 0.7; sfx2.connect(ctx2.destination);
+    const mus2 = ctx2.createGain(); mus2.gain.value = 0.3; mus2.connect(ctx2.destination);
+    initSoundbank(ctx2, sfx2, mus2);
+    loadSounds().then(() => {
+      if (isLoaded()) {
+        console.log('Real sounds loaded — upgrading audio');
+        sbStartDrone('drone_1'); // Start ambient drone
+      }
+    });
+  } catch(e) {}
   newGame(seed);
   initStartingParty();
   setLocationTheme('vancouver');

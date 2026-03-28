@@ -5,6 +5,7 @@
 // ============================================================
 
 import * as audio from '../engine/audio.js';
+import { sbZombieGroan, sbGhostNoise, sbDarkSFX, sbHit, isLoaded as sbReady } from '../engine/soundbank.js';
 
 let sceneCanvas = null;
 let sceneCtx = null;
@@ -114,12 +115,15 @@ function playSceneAmbient(sceneId) {
         }, 5000);
       },
       ruins: () => {
-        // Occasional glass/creak
+        // Dark atmosphere with real sounds
+        if (sbReady()) sbDarkSFX();
         sceneAmbientInterval = setInterval(() => {
           if (currentScene !== 'ruins') return;
-          if (Math.random() > 0.7) audio.playDoorCreak();
+          if (Math.random() > 0.6) audio.playDoorCreak();
+          if (sbReady() && Math.random() > 0.6) sbGhostNoise();
+          if (sbReady() && Math.random() > 0.8) sbDarkSFX();
           if (Math.random() > 0.9) audio.playGlassBreak();
-        }, 7000);
+        }, 6000);
       },
       lake: () => {
         // Wind
@@ -128,12 +132,15 @@ function playSceneAmbient(sceneId) {
         }, 8000);
       },
       hospital_outside: () => {
-        // Distant sounds
+        // Distant sounds — use real growls when loaded
+        audio.playWindGust();
         sceneAmbientInterval = setInterval(() => {
           if (currentScene !== 'hospital_outside') return;
-          if (Math.random() > 0.7) audio.playWindGust();
-          if (Math.random() > 0.8) audio.playZombieGroan();
-        }, 6000);
+          if (Math.random() > 0.6) audio.playWindGust();
+          if (sbReady() && Math.random() > 0.5) sbZombieGroan();
+          else if (Math.random() > 0.8) audio.playZombieGroan();
+          if (sbReady() && Math.random() > 0.8) sbGhostNoise();
+        }, 5000);
       },
     };
 

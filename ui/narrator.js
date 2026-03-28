@@ -7,23 +7,45 @@ import { calculateSuccessChance, convertDCtoTarget, getRollCount } from './dice.
 import { isTimerEnabled, getTimerDuration, getSettings } from '../engine/settings.js';
 import { startChoiceTimer, stopChoiceTimer } from './timer.js';
 import * as audio from '../engine/audio.js';
+import { sbZombieGroan, sbHit, sbBassImpact, sbGhostNoise, sbRiser, sbWhoosh, sbClick, sbDarkSFX, sbSnap, isLoaded } from '../engine/soundbank.js';
 
 let typeTickCounter = 0; // Only play tick every Nth character
 
-// Sound triggers — when a line contains these words, play the sound
+// Sound triggers — when a line contains these words, play the sound.
+// Uses REAL sounds from soundbank when loaded, falls back to procedural.
 const NARRATION_SOUNDS = [
-  { words: ['screaming', 'screams', 'scream', 'shrieks', 'shriek'], fn: () => audio.playScreamerShriek() },
-  { words: ['footsteps', 'running', 'sprint', 'runs', 'run!'], fn: () => { audio.playFootstep('concrete'); setTimeout(() => audio.playFootstep('concrete'), 200); setTimeout(() => audio.playFootstep('concrete'), 400); } },
-  { words: ['crash', 'crashes', 'slams', 'slam', 'smash', 'smashes', 'hits the door', 'pounding'], fn: () => audio.playSlam() },
-  { words: ['silence', 'quiet', 'still'], fn: () => {} }, // Intentional silence — stop other sounds
-  { words: ['scratching', 'scratch'], fn: () => audio.playDoorCreak() },
-  { words: ['gunshot', 'shoots', 'fires', 'shot', 'rifle', 'shotgun'], fn: () => audio.playShotgun() },
-  { words: ['pistol', 'handgun'], fn: () => audio.playPistol() },
-  { words: ['groan', 'groaning', 'groans', 'moaning', 'moan'], fn: () => audio.playZombieGroan() },
-  { words: ['biting', 'bitten', 'bite', 'bit'], fn: () => { audio.playZombieGroan(); audio.playSlam(); } },
+  { words: ['screaming', 'screams', 'scream', 'shrieks', 'shriek'], fn: () => {
+    if (isLoaded()) { sbZombieGroan(); sbHit(); } else audio.playScreamerShriek();
+  }},
+  { words: ['footsteps', 'running', 'sprint', 'runs', 'run!'], fn: () => {
+    audio.playFootstep('concrete'); setTimeout(() => audio.playFootstep('concrete'), 200); setTimeout(() => audio.playFootstep('concrete'), 400);
+  }},
+  { words: ['crash', 'crashes', 'slams', 'slam', 'smash', 'smashes', 'hits the door', 'pounding'], fn: () => {
+    if (isLoaded()) { sbHit(); sbBassImpact(); } else audio.playSlam();
+  }},
+  { words: ['silence', 'quiet', 'still'], fn: () => {} },
+  { words: ['scratching', 'scratch'], fn: () => {
+    if (isLoaded()) sbGhostNoise(); else audio.playDoorCreak();
+  }},
+  { words: ['gunshot', 'shoots', 'fires', 'shot', 'rifle', 'shotgun'], fn: () => {
+    if (isLoaded()) { sbSnap(); sbHit(); } else audio.playShotgun();
+  }},
+  { words: ['pistol', 'handgun'], fn: () => {
+    if (isLoaded()) sbSnap(); else audio.playPistol();
+  }},
+  { words: ['groan', 'groaning', 'groans', 'moaning', 'moan'], fn: () => {
+    if (isLoaded()) sbZombieGroan(); else audio.playZombieGroan();
+  }},
+  { words: ['biting', 'bitten', 'bite', 'bit'], fn: () => {
+    if (isLoaded()) { sbZombieGroan(); sbHit(); } else { audio.playZombieGroan(); audio.playSlam(); }
+  }},
   { words: ['door opens', 'door creaks', 'creaks open', 'creaking'], fn: () => audio.playDoorCreak() },
-  { words: ['glass', 'window breaks', 'window shatters', 'shattered'], fn: () => audio.playGlassBreak() },
-  { words: ['thunder', 'lightning'], fn: () => audio.playThunder() },
+  { words: ['glass', 'window breaks', 'window shatters', 'shattered'], fn: () => {
+    if (isLoaded()) { sbHit(); sbDarkSFX(); } else audio.playGlassBreak();
+  }},
+  { words: ['thunder', 'lightning'], fn: () => {
+    if (isLoaded()) sbBassImpact(); else audio.playThunder();
+  }},
   { words: ['wind', 'howling', 'blizzard', 'gust'], fn: () => audio.playWindGust() },
   { words: ['fire', 'burning', 'flames', 'campfire'], fn: () => audio.playFireCrackle() },
   { words: ['beeping', 'monitors', 'monitor', 'heart rate'], fn: () => audio.playHeartMonitor(false) },
@@ -32,8 +54,19 @@ const NARRATION_SOUNDS = [
   { words: ['owl', 'hooting'], fn: () => audio.playOwlHoot() },
   { words: ['rain', 'raining', 'downpour'], fn: () => audio.playRainLoop() },
   { words: ['dice', 'rolling'], fn: () => audio.playDiceRoll() },
-  { words: ['helicopter', 'chopper', 'rotors'], fn: () => audio.playWindGust() },
-  { words: ['explosion', 'explodes', 'detonates', 'blast'], fn: () => { audio.playShotgun(); audio.playThunder(); } },
+  { words: ['helicopter', 'chopper', 'rotors'], fn: () => {
+    if (isLoaded()) sbWhoosh(); else audio.playWindGust();
+  }},
+  { words: ['explosion', 'explodes', 'detonates', 'blast'], fn: () => {
+    if (isLoaded()) { sbBassImpact(); sbHit(); sbSnap(); } else { audio.playShotgun(); audio.playThunder(); }
+  }},
+  { words: ['eerie', 'presence', 'watching', 'eyes'], fn: () => {
+    if (isLoaded()) sbGhostNoise();
+  }},
+  { words: ['horde', 'swarm', 'dozens', 'hundreds'], fn: () => {
+    if (isLoaded()) { sbZombieGroan(); setTimeout(sbZombieGroan, 300); setTimeout(sbZombieGroan, 600); }
+    else { audio.playZombieGroan(); }
+  }},
 ];
 
 let lastTriggeredLine = ''; // Prevent double-triggering same line

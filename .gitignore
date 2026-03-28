@@ -5,3 +5,7 @@ Thumbs.db
 *.log
 .env
 .claude/plans/
+# Audio files too large for git — keep locally, package into exe later
+assets/audio/**/*.wav
+assets/audio/**/*.mp3
+assets/audio/**/*.ogg
