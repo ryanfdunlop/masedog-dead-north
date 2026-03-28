@@ -5,7 +5,7 @@
 // ============================================================
 
 import * as audio from '../engine/audio.js';
-import { sbZombieGroan, sbGhostNoise, sbDarkSFX, sbHit, sbExotic, sbAlarm, sbSceneTransition, sbStartSceneAmbient, isLoaded as sbReady } from '../engine/soundbank.js';
+import { sbZombieGroan, sbGhostNoise, sbDarkSFX, sbHit, sbExotic, sbAlarm, sbAIVoice, sbTrainHorn, sbStartWinter, sbSceneTransition, sbStartSceneAmbient, isLoaded as sbReady } from '../engine/soundbank.js';
 
 let sceneCanvas = null;
 let sceneCtx = null;
@@ -117,10 +117,13 @@ function playSceneAmbient(sceneId) {
         }, 3000);
       },
       winter: () => {
-        // Wind gusts
+        // Real winter ambient + wind gusts
+        if (sbReady()) sbStartWinter();
         audio.playWindGust();
         sceneAmbientInterval = setInterval(() => {
-          if (currentScene === 'winter') audio.playWindGust();
+          if (currentScene !== 'winter') return;
+          audio.playWindGust();
+          if (sbReady() && Math.random() > 0.7) sbGhostNoise(); // Eerie in the cold
         }, 6000);
       },
       prairie: () => {

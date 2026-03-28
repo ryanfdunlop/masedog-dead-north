@@ -135,6 +135,22 @@ const MANIFEST = {
   // Clock ticking — high stakes countdown
   clock_tick: 'sfx/clock_tick.wav',
 
+  // Winter ambient loops
+  winter_1: 'ambient/winter_1.wav',
+  winter_2: 'ambient/winter_2.wav',
+  winter_3: 'ambient/winter_3.wav',
+  winter_deep: 'ambient/winter_deep.wav',
+
+  // Train horn — distant, atmospheric
+  train_horn: 'sfx/train_horn.wav',
+
+  // Creepy AI voices — when the AI overlord speaks
+  ai_voice_1: 'sfx/ai_voice_1.wav',
+  ai_voice_2: 'sfx/ai_voice_2.wav',
+  ai_voice_3: 'sfx/ai_voice_3.wav',
+  ai_voice_4: 'sfx/ai_voice_4.wav',
+  ai_voice_5: 'sfx/ai_voice_5.wav',
+
   // Scene transitions (Mason's picks)
   scene_piano: 'transitions/scene_piano.wav',    // "creepy dark piano keys — great!"
   scene_plucks: 'transitions/scene_plucks.wav',  // pluck scene change
@@ -345,6 +361,23 @@ export function sbStartExploration() {
 /** Start hope/victory music */
 export function sbStartHope() {
   return playRandom('hope', { volume: 0.1, loop: true, music: true });
+}
+
+/** Start winter ambient loop */
+export function sbStartWinter() {
+  const picks = ['winter_1', 'winter_2', 'winter_3', 'winter_deep'];
+  const pick = picks[Math.floor(Math.random() * picks.length)];
+  return playSound(pick, { volume: 0.07, loop: true, music: true });
+}
+
+/** Play creepy AI voice — when the AI overlord communicates */
+export function sbAIVoice() {
+  return playRandom('ai_voice', { volume: 0.25, panVal: (Math.random() - 0.5) * 0.8 });
+}
+
+/** Play distant train horn */
+export function sbTrainHorn() {
+  return playSound('train_horn', { volume: 0.1, panVal: (Math.random() - 0.5) * 1.4 });
 }
 
 /** Play creepy piano scene transition */
