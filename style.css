@@ -1197,6 +1197,87 @@ body.region-ottawa {
   margin-top: 2px;
 }
 
+/* Push Your Luck */
+.luck-gained {
+  background: rgba(51, 170, 68, 0.1);
+  border: 1px solid var(--accent-green);
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  font-size: 16px;
+  color: var(--accent-green);
+}
+
+.luck-gain-item {
+  display: inline-block;
+  background: rgba(51, 170, 68, 0.15);
+  padding: 2px 8px;
+  margin: 2px 4px;
+  font-weight: bold;
+}
+
+.luck-risk {
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  color: var(--accent-yellow);
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+
+.luck-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  font-family: var(--font-pixel);
+  font-size: 12px;
+  animation: resultPop 0.3s ease-out;
+}
+
+.luck-result.success {
+  background: rgba(51, 170, 68, 0.1);
+  border: 1px solid var(--accent-green);
+  color: var(--accent-green);
+}
+
+.luck-result.failure {
+  background: rgba(204, 51, 51, 0.1);
+  border: 1px solid var(--accent-red);
+  color: var(--accent-red);
+}
+
+.luck-result-icon { font-size: 28px; }
+
+.luck-losses {
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.luck-loss-item {
+  color: var(--accent-red);
+  margin-bottom: 2px;
+  padding-left: 8px;
+  border-left: 2px solid var(--accent-red);
+}
+
+.luck-net {
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  color: var(--accent-yellow);
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: rgba(204, 170, 34, 0.08);
+  border: 1px dashed var(--accent-yellow);
+}
+
+.luck-cashout {
+  padding: 8px 12px;
+  color: var(--accent-green);
+  font-size: 16px;
+}
+
 /* Skill training picker */
 .skill-train-picker {
   display: grid;

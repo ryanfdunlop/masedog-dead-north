@@ -13,7 +13,11 @@ import { renderMap } from './map.js';
 import { renderInventory } from './inventory.js';
 import { renderPartyPortraits, getPortraitDataURL } from './portraits.js';
 import { saveGame, loadGame, getSaveSlots, hasSaves, autosave } from '../engine/save.js';
-import { getAvailableActions, resolveAction, getActionDiceParams } from '../engine/actions.js';
+import {
+  getResourceActions, rollForResource, calculateFailPenalty,
+  applyGains, applyLosses, getShareOptions, transferHealth,
+  useMedicineOn, trainSkill,
+} from '../engine/actions.js';
 import { calculateSuccessChance, convertDCtoTarget, getRollCount, rollDice } from './dice.js';
 
 let screens = {};
@@ -204,138 +208,322 @@ function setupCampScreen(data) {
 
 function renderActionsTab(container, campData) {
   const state = getState();
-  const actions = getAvailableActions();
+
+  container.innerHTML = `
+    <div class="camp-section">
+      <h3>PUSH YOUR LUCK</h3>
+      <p style="color: var(--text-dim); font-size: 14px; margin-bottom: 8px;">
+        Roll dice to gather resources. <strong style="color: var(--accent-yellow);">Keep rolling to win more</strong> — but fail and a zombie horde raids your supplies!
+      </p>
+      <p style="color: var(--accent-red); font-size: 12px; margin-bottom: 12px;">
+        The more you roll, the harder it gets. Quit while you're ahead... or push your luck.
+      </p>
+      <div id="push-luck-area"></div>
+    </div>
+    <div class="camp-section">
+      <h3>OTHER ACTIONS</h3>
+      <div class="camp-actions-grid" id="other-actions"></div>
+    </div>
+  `;
+
+  renderPushYourLuck(document.getElementById('push-luck-area'), campData);
+  renderOtherActions(document.getElementById('other-actions'), container, campData);
+}
+
+// ========== PUSH YOUR LUCK ==========
+
+function renderPushYourLuck(area, campData) {
+  const actions = getResourceActions();
+  const gained = {}; // Track resources gained this session
+  let rollNumber = 0;
+  let sessionActive = true;
+
+  showResourcePicker(area, actions, gained, rollNumber, sessionActive, campData);
+}
+
+function showResourcePicker(area, actions, gained, rollNumber, sessionActive, campData) {
+  if (!sessionActive) return;
+
+  // Show what's been gained so far
+  let gainedHtml = '';
+  const gainedEntries = Object.entries(gained);
+  if (gainedEntries.length > 0) {
+    gainedHtml = `<div class="luck-gained"><strong>Won so far:</strong> ${gainedEntries.map(([t, a]) => `<span class="luck-gain-item">${t}: +${a}</span>`).join(' ')}</div>`;
+  }
+
+  const riskHtml = rollNumber > 0
+    ? `<div class="luck-risk">Roll ${rollNumber + 1} — Difficulty increased! ${rollNumber >= 2 ? '<span style="color:var(--accent-red)">HIGH RISK!</span>' : ''}</div>`
+    : `<div class="luck-risk">Roll 1 — Starting difficulty</div>`;
 
   let html = `
-    <div class="camp-section">
-      <h3>WHAT DO YOU WANT TO DO?</h3>
-      <p style="color: var(--text-dim); font-size: 14px; margin-bottom: 12px;">Choose one action before continuing your journey. Each action uses a dice roll to determine the outcome.</p>
-      <div class="camp-actions-grid">
+    ${gainedHtml}
+    ${riskHtml}
+    <div class="camp-actions-grid">
   `;
 
   for (const action of actions) {
-    const diceParams = getActionDiceParams(action.id);
-    let chanceText = '';
-    if (diceParams) {
-      const bonus = state.player.skills[diceParams.skill] || 0;
-      const target = convertDCtoTarget(diceParams.dc);
-      const numRolls = getRollCount(diceParams.dc);
-      const chance = calculateSuccessChance(bonus, target, numRolls);
-      const chanceClass = chance >= 65 ? 'high' : chance >= 40 ? 'medium' : 'low';
-      chanceText = `<div class="camp-action-chance ${chanceClass}">${chance}% chance</div>`;
-    }
+    const difficulty = action.difficulty + Math.max(0, rollNumber * 2);
+    const chance = calculateSuccessChance(0, difficulty, 1);
+    const chanceClass = chance >= 65 ? 'high' : chance >= 40 ? 'medium' : 'low';
 
     html += `
-      <button class="camp-action-btn" data-action="${action.id}">
+      <button class="camp-action-btn push-luck-btn" data-action-id="${action.id}">
         <div class="camp-action-icon">${action.icon}</div>
         <div class="camp-action-name">${action.name}</div>
         <div class="camp-action-desc">${action.description}</div>
-        <div class="camp-action-detail">${action.detail}</div>
-        ${action.skill ? `<div class="camp-action-skill">${action.skill.toUpperCase()} skill</div>` : ''}
-        ${chanceText}
+        <div class="camp-action-chance ${chanceClass}">${chance}% — need ${difficulty}+ on 2d6</div>
       </button>
     `;
   }
 
-  html += `</div></div>`;
-  container.innerHTML = html;
+  html += `</div>`;
 
-  // Wire up action buttons
-  container.querySelectorAll('.camp-action-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const actionId = btn.dataset.action;
-
-      if (actionId === 'train_skill') {
-        // Show skill picker
-        showSkillPicker(container, campData);
-        return;
-      }
-
-      if (actionId === 'rest_recover') {
-        // No dice needed — resolve directly
-        const result = resolveAction(actionId, {});
-        showActionResult(container, result.messages, campData);
-        return;
-      }
-
-      // Roll dice for this action
-      const diceParams = getActionDiceParams(actionId);
-      if (diceParams) {
-        const state = getState();
-        const bonus = state.player.skills[diceParams.skill] || 0;
-        const target = convertDCtoTarget(diceParams.dc);
-        const numRolls = getRollCount(diceParams.dc);
-
-        const diceResult = await rollDice({
-          skill: diceParams.skill,
-          bonus,
-          target,
-          rolls: numRolls,
-          label: `${actions.find(a => a.id === actionId)?.name || actionId}`,
-        });
-
-        const result = resolveAction(actionId, diceResult);
-
-        // Award skill XP
-        if (result.skillXP) {
-          for (const [skill, xp] of Object.entries(result.skillXP)) {
-            const { dispatch } = await import('../engine/state.js');
-            dispatch('ADD_SKILL_XP', { characterId: 'masedog', skill, xp });
-          }
-        }
-
-        showActionResult(container, result.messages, campData);
-      }
-    });
-  });
-}
-
-function showSkillPicker(container, campData) {
-  const skills = ['combat', 'athletics', 'perception', 'medical', 'mechanics', 'charisma', 'stealth', 'survival'];
-  const state = getState();
-
-  let html = `
-    <div class="camp-section">
-      <h3>CHOOSE A SKILL TO TRAIN</h3>
-      <div class="skill-train-picker">
-  `;
-
-  for (const skill of skills) {
-    const level = state.player.skills[skill] || 0;
-    const xp = state.player.skillXP?.[skill] || 0;
-    const threshold = level * 3;
-    html += `<button class="skill-train-btn" data-skill="${skill}">${skill} (${level})<br><span style="font-size:5px; color:#666">${xp}/${threshold} XP</span></button>`;
+  if (rollNumber > 0) {
+    html += `<button class="btn-continue" id="btn-cash-out" style="margin-top: 12px; background: var(--accent-green);">CASH OUT — Keep your winnings</button>`;
   }
 
-  html += `</div></div>`;
-  container.innerHTML = html;
+  area.innerHTML = html;
 
-  container.querySelectorAll('.skill-train-btn').forEach(btn => {
+  // Wire buttons
+  area.querySelectorAll('.push-luck-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const skill = btn.dataset.skill;
-      const result = resolveAction('train_skill', { trainSkill: skill });
+      const actionId = btn.dataset.actionId;
+      const action = actions.find(a => a.id === actionId);
+      if (!action) return;
 
-      const { dispatch } = await import('../engine/state.js');
-      dispatch('ADD_SKILL_XP', { characterId: 'masedog', skill, xp: 3 });
+      // Roll using the visual dice
+      const difficulty = action.difficulty + Math.max(0, rollNumber * 2);
+      const diceResult = await rollDice({
+        skill: action.name,
+        bonus: 0, // No bonus — pure dice roll for push-your-luck
+        target: difficulty,
+        label: `${action.icon} ${action.name}`,
+      });
 
-      showActionResult(container, result.messages, campData);
+      rollNumber++;
+
+      if (diceResult.success) {
+        // WIN — add to gained resources
+        const result = rollForResource(action, rollNumber);
+        const reward = result.reward || { type: action.reward.type, amount: action.reward.min };
+        gained[reward.type] = (gained[reward.type] || 0) + reward.amount;
+
+        if (diceResult.critSuccess) {
+          // Double sixes = bonus reward!
+          gained[reward.type] += reward.amount;
+          area.innerHTML = `
+            <div class="luck-result success">
+              <div class="luck-result-icon">🎯</div>
+              <div>DOUBLE SIXES! Won ${reward.amount * 2} ${reward.type}!</div>
+            </div>
+          `;
+        } else {
+          area.innerHTML = `
+            <div class="luck-result success">
+              <div class="luck-result-icon">${action.icon}</div>
+              <div>Won ${reward.amount} ${reward.type}!</div>
+            </div>
+          `;
+        }
+
+        // Brief pause then show "roll again or cash out"
+        await new Promise(r => setTimeout(r, 1200));
+        showResourcePicker(area, actions, gained, rollNumber, true, campData);
+
+      } else {
+        // FAIL — zombies come! Lose a chunk of what you gained
+        const { losses, lossPercent } = calculateFailPenalty(gained, rollNumber);
+
+        // First apply whatever was gained
+        if (Object.keys(gained).length > 0) {
+          applyGains(gained);
+        }
+        // Then apply losses
+        const lossMessages = applyLosses(losses);
+
+        let failHtml = `
+          <div class="luck-result failure">
+            <div class="luck-result-icon">💀</div>
+            <div>FAILED! A zombie horde descends on your position!</div>
+          </div>
+          <div class="luck-losses">
+            <div>You lose ${lossPercent}% of your gains:</div>
+            ${lossMessages.map(m => `<div class="luck-loss-item">${m}</div>`).join('')}
+        `;
+
+        if (diceResult.critFail) {
+          failHtml += `<div class="luck-loss-item" style="color: var(--accent-red);">SNAKE EYES! Extra damage — the horde catches you off guard!</div>`;
+          dispatch('UPDATE_PLAYER_HEALTH', -10);
+        }
+
+        // Net result
+        const netGains = {};
+        for (const [type, amount] of Object.entries(gained)) {
+          const loss = losses[type] || 0;
+          const net = amount - loss;
+          if (net > 0) netGains[type] = net;
+        }
+        const netHtml = Object.entries(netGains).length > 0
+          ? `<div class="luck-net">Net gain: ${Object.entries(netGains).map(([t, a]) => `${t}: +${a}`).join(', ')}</div>`
+          : `<div class="luck-net" style="color: var(--accent-red);">You came back with nothing.</div>`;
+
+        failHtml += `${netHtml}</div>`;
+        failHtml += `<button class="btn-continue" id="btn-luck-done" style="margin-top: 12px;">CONTINUE JOURNEY</button>`;
+
+        area.innerHTML = failHtml;
+        updateHUD();
+
+        document.getElementById('btn-luck-done')?.addEventListener('click', () => {
+          if (campData.onContinue) campData.onContinue();
+        });
+      }
     });
+  });
+
+  // Cash out button
+  document.getElementById('btn-cash-out')?.addEventListener('click', () => {
+    if (Object.keys(gained).length > 0) {
+      const messages = applyGains(gained);
+      area.innerHTML = `
+        <div class="luck-result success">
+          <div class="luck-result-icon">✅</div>
+          <div>Cashed out safely!</div>
+        </div>
+        <div class="luck-cashout">
+          ${messages.map(m => `<div>${m}</div>`).join('')}
+        </div>
+        <button class="btn-continue" id="btn-luck-done" style="margin-top: 12px;">CONTINUE JOURNEY</button>
+      `;
+      updateHUD();
+
+      document.getElementById('btn-luck-done')?.addEventListener('click', () => {
+        if (campData.onContinue) campData.onContinue();
+      });
+    }
   });
 }
 
-function showActionResult(container, messages, campData) {
+// ========== OTHER ACTIONS (Train, Share, Medicine) ==========
+
+function renderOtherActions(area, container, campData) {
+  const state = getState();
+  const living = getLivingParty();
+
+  area.innerHTML = `
+    <button class="camp-action-btn" id="btn-train">
+      <div class="camp-action-icon">📈</div>
+      <div class="camp-action-name">Train Skill</div>
+      <div class="camp-action-desc">Practice a skill. +3 XP guaranteed.</div>
+    </button>
+    <button class="camp-action-btn" id="btn-share-health">
+      <div class="camp-action-icon">🩹</div>
+      <div class="camp-action-name">Share Health</div>
+      <div class="camp-action-desc">Transfer HP from one member to another.</div>
+    </button>
+    <button class="camp-action-btn" id="btn-use-medicine" ${state.resources.medicine <= 0 ? 'disabled style="opacity:0.4"' : ''}>
+      <div class="camp-action-icon">💊</div>
+      <div class="camp-action-name">Use Medicine</div>
+      <div class="camp-action-desc">Heal a party member. (${state.resources.medicine} available)</div>
+    </button>
+    <button class="camp-action-btn" id="btn-just-continue">
+      <div class="camp-action-icon">🚶</div>
+      <div class="camp-action-name">Continue Journey</div>
+      <div class="camp-action-desc">Skip actions and keep moving.</div>
+    </button>
+  `;
+
+  // Train
+  document.getElementById('btn-train')?.addEventListener('click', () => {
+    const skills = ['combat', 'athletics', 'perception', 'medical', 'mechanics', 'charisma', 'stealth', 'survival'];
+    let html = `<h3>CHOOSE SKILL TO TRAIN</h3><div class="skill-train-picker">`;
+    for (const skill of skills) {
+      const level = state.player.skills[skill] || 0;
+      const xp = state.player.skillXP?.[skill] || 0;
+      const threshold = level * 3;
+      html += `<button class="skill-train-btn" data-skill="${skill}">${skill} (${level})<br><span style="font-size:6px; color:#666">${xp}/${threshold} XP</span></button>`;
+    }
+    html += `</div>`;
+    container.querySelector('#tab-actions').innerHTML = `<div class="camp-section">${html}</div>`;
+
+    container.querySelectorAll('.skill-train-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const result = trainSkill(btn.dataset.skill);
+        showFinalResult(container, result.messages, campData);
+      });
+    });
+  });
+
+  // Share health
+  document.getElementById('btn-share-health')?.addEventListener('click', () => {
+    const options = getShareOptions();
+    const allChars = [options.player, ...options.party];
+    let html = `<h3>SHARE HEALTH</h3><p style="color:var(--text-dim); font-size:14px; margin-bottom:12px;">Choose who gives HP and who receives (giver can't go below 20 HP).</p>`;
+    html += `<div style="display:flex; gap:12px; flex-wrap:wrap;">`;
+    for (const c of allChars) {
+      html += `<div class="char-card" style="flex:1; min-width:120px; cursor:pointer;" data-char-id="${c.id}">
+        <div class="char-name">${c.name}</div>
+        <div>HP: ${c.health}/${c.maxHealth}</div>
+      </div>`;
+    }
+    html += `</div>`;
+    html += `<p style="color:var(--text-dim); font-size:12px; margin-top:8px;">Click the GIVER first, then the RECEIVER.</p>`;
+    container.querySelector('#tab-actions').innerHTML = `<div class="camp-section">${html}</div>`;
+
+    let fromId = null;
+    container.querySelectorAll('[data-char-id]').forEach(card => {
+      card.addEventListener('click', () => {
+        if (!fromId) {
+          fromId = card.dataset.charId;
+          card.style.border = '2px solid var(--accent-green)';
+        } else {
+          const toId = card.dataset.charId;
+          if (toId === fromId) return;
+          const result = transferHealth(fromId, toId, 15);
+          showFinalResult(container, result.messages, campData);
+        }
+      });
+    });
+  });
+
+  // Use medicine
+  document.getElementById('btn-use-medicine')?.addEventListener('click', () => {
+    const options = getShareOptions();
+    const allChars = [options.player, ...options.party];
+    let html = `<h3>USE MEDICINE ON WHO?</h3><div style="display:flex; gap:8px; flex-wrap:wrap;">`;
+    for (const c of allChars) {
+      html += `<button class="camp-action-btn" data-med-target="${c.id}" style="flex:1; min-width:120px;">
+        <div class="camp-action-icon">💊</div>
+        <div class="camp-action-name">${c.name}</div>
+        <div class="camp-action-desc">HP: ${c.health}/${c.maxHealth}</div>
+      </button>`;
+    }
+    html += `</div>`;
+    container.querySelector('#tab-actions').innerHTML = `<div class="camp-section">${html}</div>`;
+
+    container.querySelectorAll('[data-med-target]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const result = useMedicineOn(btn.dataset.medTarget);
+        showFinalResult(container, result.messages, campData);
+      });
+    });
+  });
+
+  // Just continue
+  document.getElementById('btn-just-continue')?.addEventListener('click', () => {
+    if (campData.onContinue) campData.onContinue();
+  });
+}
+
+function showFinalResult(container, messages, campData) {
   let html = `<div class="camp-section"><h3>RESULT</h3>`;
   for (const msg of messages) {
     html += `<div style="color: var(--accent-orange); margin-bottom: 4px;">${msg}</div>`;
   }
-  html += `<button class="btn-continue" id="btn-action-done" style="margin-top: 16px;">CONTINUE JOURNEY</button>`;
-  html += `</div>`;
-  container.innerHTML = html;
-
-  // Update HUD
+  html += `<button class="btn-continue" id="btn-action-done" style="margin-top: 16px;">CONTINUE JOURNEY</button></div>`;
+  container.querySelector('#tab-actions').innerHTML = html;
   updateHUD();
 
-  document.getElementById('btn-action-done').addEventListener('click', () => {
+  document.getElementById('btn-action-done')?.addEventListener('click', () => {
     if (campData.onContinue) campData.onContinue();
   });
 }

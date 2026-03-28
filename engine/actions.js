@@ -1,351 +1,322 @@
 // ============================================================
-// MASEDOG: Dead North — Player-Directed Camp Actions
-// Players choose what to do at camp instead of just continuing.
+// MASEDOG: Dead North — Push-Your-Luck Camp Actions
+// Roll dice to win resources. Keep rolling to win MORE —
+// but fail and zombies come, costing you what you gained.
+// Also: share/transfer resources between party members.
 // ============================================================
 
 import { dispatch, getState, getRNG, getLivingParty, getPartySize } from './state.js';
-import { range, chance } from './random.js';
 import { getCurrentRegion } from './events.js';
 
+// Crypto-grade random: truly unpredictable, not seeded
+function trueRandom() {
+  const arr = new Uint32Array(1);
+  crypto.getRandomValues(arr);
+  return arr[0] / 4294967296; // 0 to 1
+}
+
+function trueRandInt(min, max) {
+  return Math.floor(trueRandom() * (max - min + 1)) + min;
+}
+
+// ========== PUSH-YOUR-LUCK RESOURCE ACTIONS ==========
+
 /**
- * Get available camp actions based on current state.
+ * The resource actions available for push-your-luck.
+ * Each has a base difficulty and reward range.
  */
-export function getAvailableActions() {
+export function getResourceActions() {
   const state = getState();
+  const season = state.calendar.season;
   const region = getCurrentRegion(state.journey.currentKm);
   const isUrban = ['vancouver', 'alberta', 'manitoba', 'ontario_south', 'ottawa_approach'].includes(region);
-  const isWinter = state.calendar.season === 'winter';
-  const hasDoctor = state.party.some(c => c.isAlive && c.skills.medical >= 7);
+  const isWinter = season === 'winter';
 
-  const actions = [
+  return [
     {
-      id: 'scout_water',
+      id: 'water',
       name: 'Scout for Water',
       icon: '💧',
-      description: 'Search the area for clean water sources.',
-      skill: 'survival',
-      detail: isWinter ? 'Melt snow or find frozen streams.' : 'Look for streams, wells, or stored water.',
-      available: true,
+      reward: { type: 'water', min: 2, max: isWinter ? 3 : 5 },
+      difficulty: isWinter ? 8 : 5, // Target number on 2d6
+      description: isWinter ? 'Melt snow and ice for water.' : 'Search for streams or stored water.',
     },
     {
-      id: 'forage_food',
-      name: 'Forage for Food',
+      id: 'food',
+      name: 'Hunt & Forage',
       icon: '🍖',
-      description: 'Hunt, trap, or gather food in the area.',
-      skill: 'survival',
-      detail: isWinter ? 'Slim pickings in winter. Set snares or ice fish.' : 'Hunt game, gather berries, check abandoned stores.',
-      available: true,
+      reward: { type: 'food', min: 2, max: isWinter ? 3 : 5 },
+      difficulty: isWinter ? 9 : 6,
+      description: isWinter ? 'Set traps in the snow.' : 'Hunt game or gather supplies.',
     },
     {
-      id: 'scavenge_supplies',
-      name: 'Scavenge Supplies',
-      icon: '🔍',
-      description: 'Search nearby buildings for useful items.',
-      skill: 'perception',
-      detail: isUrban ? 'Urban area — better chances of finding gear.' : 'Rural — less to find but also less competition.',
-      available: true,
-    },
-    {
-      id: 'medical_run',
+      id: 'medicine',
       name: 'Medical Supply Run',
       icon: '💊',
-      description: 'Search for medicine, bandages, and medical tools.',
-      skill: 'medical',
-      detail: isUrban ? 'Pharmacies and clinics might still have supplies.' : 'Check farmhouses and first aid kits.',
-      available: true,
+      reward: { type: 'medicine', min: 1, max: isUrban ? 3 : 2 },
+      difficulty: isUrban ? 6 : 9,
+      description: isUrban ? 'Raid a pharmacy or clinic.' : 'Search farmhouses for first aid.',
     },
     {
-      id: 'train_skill',
-      name: 'Train & Practice',
-      icon: '📈',
-      description: 'Spend time improving a skill through practice.',
-      skill: null, // Player picks which skill
-      detail: 'Choose a skill to practice. Gain XP toward leveling up.',
-      available: true,
+      id: 'ammo',
+      name: 'Scavenge Ammo',
+      icon: '🔫',
+      reward: { type: 'ammo', min: 2, max: isUrban ? 6 : 3 },
+      difficulty: isUrban ? 6 : 8,
+      description: isUrban ? 'Check police cars, gun stores.' : 'Search hunting cabins.',
     },
     {
-      id: 'rest_recover',
+      id: 'scrap',
+      name: 'Salvage Materials',
+      icon: '🔧',
+      reward: { type: 'scrap', min: 2, max: 5 },
+      difficulty: 5,
+      description: 'Pull apart wreckage for useful parts.',
+    },
+    {
+      id: 'rest',
       name: 'Rest & Recover',
       icon: '🛏️',
-      description: 'Take time to rest, tend wounds, and recover strength.',
-      skill: null,
-      detail: `Recover HP and morale. ${state.player.health < 50 ? 'You really need this.' : 'A calm moment in the storm.'}`,
-      available: true,
-    },
-    {
-      id: 'team_heal',
-      name: 'Emergency Team Care',
-      icon: '🩹',
-      description: 'Ask team members to help treat your injuries.',
-      skill: null,
-      detail: hasDoctor
-        ? `Dr. Reyes can provide expert medical care. ${state.player.health < 40 ? 'You NEED this.' : ''}`
-        : `Party members share supplies and treat wounds. ${state.player.health < 40 ? 'You NEED this.' : ''}`,
-      available: state.player.health < 80 && getLivingParty().length > 0,
-    },
-    {
-      id: 'repair_equipment',
-      name: 'Repair Equipment',
-      icon: '🔧',
-      description: 'Fix gear, reinforce defenses, build useful tools.',
-      skill: 'mechanics',
-      detail: state.resources.scrap > 0 ? `Use ${state.resources.scrap} scrap to craft and repair.` : 'No scrap available — limited repairs.',
-      available: state.resources.scrap > 0 || true, // Always available but less effective without scrap
-    },
-    {
-      id: 'scout_ahead',
-      name: 'Scout Ahead',
-      icon: '🗺️',
-      description: 'Explore the route ahead to prepare for dangers.',
-      skill: 'perception',
-      detail: 'See what\'s coming next week. Knowledge is survival.',
-      available: true,
+      reward: { type: 'health', min: 8, max: 20 },
+      difficulty: 4, // Easier but still risky if you push it
+      description: 'Find shelter and rest. Recover HP.',
     },
   ];
-
-  return actions.filter(a => a.available);
 }
 
 /**
- * Resolve a camp action. Returns { messages[], effects, diceNeeded }.
- * If diceNeeded is true, the caller should trigger a dice roll first.
+ * Roll for a single resource action.
+ * Uses CRYPTO randomness — truly fair dice, no seed manipulation.
+ * @returns { success, die1, die2, total, reward }
  */
-export function resolveAction(actionId, diceResult = null) {
+export function rollForResource(action, rollNumber) {
+  // Crypto random dice — 100% fair
+  const die1 = trueRandInt(1, 6);
+  const die2 = trueRandInt(1, 6);
+  const total = die1 + die2;
+
+  // Difficulty increases with each consecutive roll
+  // Roll 1: base difficulty, Roll 2: +2, Roll 3: +3, Roll 4: +4, etc.
+  const adjustedDifficulty = action.difficulty + Math.max(0, (rollNumber - 1) * 2);
+
+  const success = total >= adjustedDifficulty;
+
+  let reward = null;
+  if (success) {
+    const amount = trueRandInt(action.reward.min, action.reward.max);
+    reward = { type: action.reward.type, amount };
+  }
+
+  return {
+    success,
+    die1,
+    die2,
+    total,
+    target: adjustedDifficulty,
+    reward,
+    critSuccess: die1 === 6 && die2 === 6,
+    critFail: die1 === 1 && die2 === 1,
+  };
+}
+
+/**
+ * Calculate the penalty when a push-your-luck chain fails.
+ * Lose a percentage of what you gained this session.
+ * Worse penalties for failing later in the chain.
+ */
+export function calculateFailPenalty(gainedResources, rollNumber) {
+  const lossPercent = Math.min(0.75, 0.3 + (rollNumber - 1) * 0.15);
+  // Roll 1 fail: lose 30% of gains
+  // Roll 2 fail: lose 45%
+  // Roll 3 fail: lose 60%
+  // Roll 4+: lose 75%
+
+  const losses = {};
+  for (const [type, amount] of Object.entries(gainedResources)) {
+    const loss = Math.ceil(amount * lossPercent);
+    if (loss > 0) losses[type] = loss;
+  }
+
+  // Also lose some existing resources (zombies ransack your bag)
   const state = getState();
-  const rng = getRNG();
-  const messages = [];
-  const effects = {};
+  const extraLoss = Math.min(2, Math.floor(rollNumber / 2));
+  if (extraLoss > 0 && state.resources.food > 0) losses.food = (losses.food || 0) + extraLoss;
+  if (extraLoss > 0 && state.resources.water > 0) losses.water = (losses.water || 0) + extraLoss;
 
-  switch (actionId) {
-    case 'scout_water': {
-      if (diceResult) {
-        if (diceResult.success) {
-          const found = diceResult.critSuccess ? range(rng, 5, 8) : range(rng, 2, 5);
-          effects.water = found;
-          messages.push(`You found ${found} units of clean water!`);
-          if (diceResult.critSuccess) messages.push('Jackpot — a pristine underground spring!');
-        } else {
-          const found = range(rng, 0, 1);
-          effects.water = found;
-          effects.health = -3;
-          messages.push(found > 0
-            ? 'Slim pickings. Found a little water but wasted energy searching.'
-            : 'Came back empty-handed. The search exhausted you.');
-        }
-        effects.skillXP = { survival: diceResult.success ? 2 : 1 };
-      }
-      break;
-    }
+  return { losses, lossPercent: Math.round(lossPercent * 100) };
+}
 
-    case 'forage_food': {
-      if (diceResult) {
-        const isWinter = state.calendar.season === 'winter';
-        const winterPenalty = isWinter ? -1 : 0;
-        if (diceResult.success) {
-          const found = Math.max(1, (diceResult.critSuccess ? range(rng, 4, 7) : range(rng, 2, 4)) + winterPenalty);
-          effects.food = found;
-          messages.push(`Brought back ${found} units of food.`);
-          if (diceResult.critSuccess) messages.push('A deer! Enough meat to last days.');
-          if (isWinter) messages.push('Slim pickings in winter, but you managed.');
-        } else {
-          effects.food = Math.max(0, range(rng, 0, 1) + winterPenalty);
-          effects.morale = -3;
-          messages.push('The hunt came up short. Wasted time and energy.');
-          if (isWinter) messages.push('The cold made everything harder.');
-        }
-        effects.skillXP = { survival: diceResult.success ? 2 : 1 };
-      }
-      break;
-    }
-
-    case 'scavenge_supplies': {
-      if (diceResult) {
-        if (diceResult.success) {
-          const lootTypes = ['food', 'water', 'ammo', 'scrap', 'medicine'];
-          const numItems = diceResult.critSuccess ? 3 : 2;
-          for (let i = 0; i < numItems; i++) {
-            const type = lootTypes[Math.floor(rng.next() * lootTypes.length)];
-            const amount = range(rng, 1, 3);
-            effects[type] = (effects[type] || 0) + amount;
-            messages.push(`Found: ${type} +${amount}`);
-          }
-          messages.unshift('Successful scavenge run!');
-        } else {
-          effects.scrap = range(rng, 0, 1);
-          effects.morale = -2;
-          messages.push('Picked through the ruins but found almost nothing useful.');
-        }
-        effects.skillXP = { perception: diceResult.success ? 2 : 1 };
-      }
-      break;
-    }
-
-    case 'medical_run': {
-      if (diceResult) {
-        if (diceResult.success) {
-          const found = diceResult.critSuccess ? range(rng, 3, 5) : range(rng, 1, 3);
-          effects.medicine = found;
-          messages.push(`Found ${found} units of medicine!`);
-          // Also heal sick party members
-          const sick = getLivingParty().filter(c => c.status.includes('sick'));
-          if (sick.length > 0 && found >= 1) {
-            messages.push(`Used medicine to treat ${sick[0].name}.`);
-            dispatch('UPDATE_CHARACTER', { id: sick[0].id, changes: { health: 10 } });
-            sick[0].status = sick[0].status.filter(s => s !== 'sick');
-          }
-        } else {
-          effects.medicine = range(rng, 0, 1);
-          messages.push('The pharmacy was already cleaned out. Found bandages at best.');
-        }
-        effects.skillXP = { medical: diceResult.success ? 2 : 1 };
-      }
-      break;
-    }
-
-    case 'team_heal': {
-      // No dice needed — team rallies to help you
-      const state2 = getState();
-      const hasDoc = state2.party.some(c => c.isAlive && c.skills.medical >= 7);
-      const hasMeds = state2.resources.medicine > 0;
-
-      let healAmount = 15; // Base team care
-      if (hasDoc) healAmount += 20; // Doctor bonus
-      if (hasMeds) {
-        healAmount += 15;
-        dispatch('UPDATE_RESOURCES', { medicine: -1 });
-        messages.push('Used 1 medicine for treatment.');
-      }
-
-      effects.health = healAmount;
-      effects.morale = 10;
-      messages.push(`Your team rallies around you. ${hasDoc ? 'Dr. Reyes takes charge — expert care.' : 'Everyone pitches in.'}`);
-      messages.push(`Recovered ${healAmount} HP.`);
-
-      if (state2.player.downed) {
-        messages.push('You\'re back on your feet. Don\'t waste the second chance.');
-      }
-
-      // Party members also benefit from the team bonding
-      for (const member of getLivingParty()) {
-        dispatch('UPDATE_CHARACTER', { id: member.id, changes: { morale: 5 } });
-      }
-      messages.push('The team\'s morale improves from working together.');
-      break;
-    }
-
-    case 'train_skill': {
-      // This doesn't need a dice roll — always succeeds
-      // The skill to train is passed via diceResult.trainSkill
-      const trainSkill = diceResult?.trainSkill || 'survival';
-      effects.skillXP = { [trainSkill]: 3 };
-      effects.morale = 3;
-      messages.push(`Spent time practicing ${trainSkill}. (+3 XP)`);
-      messages.push('Every bit of practice could save your life out there.');
-      break;
-    }
-
-    case 'rest_recover': {
-      // No dice needed — always works
-      const healAmount = range(rng, 10, 20);
-      const moraleGain = range(rng, 5, 12);
-      effects.health = healAmount;
-      effects.morale = moraleGain;
-      messages.push(`Rested and recovered ${healAmount} HP and ${moraleGain} morale.`);
-
-      // Heal downed status
-      if (state.player.downed) {
-        messages.push('The rest helps you get back on your feet.');
-      }
-
-      // Party also heals
-      for (const member of getLivingParty()) {
-        dispatch('UPDATE_CHARACTER', { id: member.id, changes: { health: Math.round(healAmount * 0.6), morale: 5 } });
-      }
-      messages.push('The whole group benefits from the rest.');
-      break;
-    }
-
-    case 'repair_equipment': {
-      if (diceResult) {
-        if (diceResult.success) {
-          const scrapUsed = Math.min(state.resources.scrap, 2);
-          effects.scrap = -scrapUsed;
-          const ammoGained = scrapUsed > 0 ? range(rng, 2, 5) : range(rng, 0, 2);
-          effects.ammo = ammoGained;
-          messages.push(`Repaired gear and crafted ${ammoGained} ammo from scrap.`);
-          if (diceResult.critSuccess) {
-            effects.fuel = range(rng, 1, 2);
-            messages.push('Also managed to siphon some fuel from a wrecked car.');
-          }
-        } else {
-          effects.scrap = -1;
-          messages.push('Burned through some scrap but the repairs didn\'t hold.');
-        }
-        effects.skillXP = { mechanics: diceResult.success ? 2 : 1 };
-      }
-      break;
-    }
-
-    case 'scout_ahead': {
-      if (diceResult) {
-        if (diceResult.success) {
-          effects.morale = 5;
-          effects.travel = 10; // Bonus travel from finding a better route
-          messages.push('You scouted the route ahead and found a safer path.');
-          if (diceResult.critSuccess) {
-            messages.push('Even spotted a supply cache along the way. Marked it on the map.');
-            effects.food = range(rng, 1, 2);
-          }
-          dispatch('SET_FLAG', { key: 'scouted_ahead', value: true });
-        } else {
-          effects.morale = -2;
-          messages.push('The scouting run didn\'t reveal much. The road ahead is uncertain.');
-        }
-        effects.skillXP = { perception: diceResult.success ? 2 : 1 };
-      }
-      break;
-    }
-  }
-
-  // Apply effects to game state
-  const { health, morale, skillXP, ...resources } = effects;
-  if (health) dispatch('UPDATE_PLAYER_HEALTH', health);
-  if (morale) dispatch('UPDATE_PLAYER_MORALE', morale);
-
+/**
+ * Apply the gains from a successful push-your-luck session.
+ */
+export function applyGains(gainedResources) {
   const resourceChanges = {};
-  for (const [key, value] of Object.entries(resources)) {
-    if (['food', 'water', 'medicine', 'ammo', 'fuel', 'scrap', 'travel'].includes(key)) {
-      if (key === 'travel') {
-        dispatch('TRAVEL', value);
-      } else {
-        resourceChanges[key] = value;
-      }
+  const messages = [];
+
+  for (const [type, amount] of Object.entries(gainedResources)) {
+    if (type === 'health') {
+      dispatch('UPDATE_PLAYER_HEALTH', amount);
+      messages.push(`Recovered ${amount} HP.`);
+    } else if (type === 'morale') {
+      dispatch('UPDATE_PLAYER_MORALE', amount);
+      messages.push(`Morale +${amount}.`);
+    } else {
+      resourceChanges[type] = amount;
+      messages.push(`Gained ${amount} ${type}.`);
     }
   }
+
   if (Object.keys(resourceChanges).length > 0) {
     dispatch('UPDATE_RESOURCES', resourceChanges);
   }
 
-  return { messages, effects, skillXP: effects.skillXP };
+  return messages;
 }
 
 /**
- * Get the skill and DC for a camp action's dice roll.
+ * Apply the losses from a failed push-your-luck.
+ * Subtracts from gained resources AND existing stockpile.
  */
-export function getActionDiceParams(actionId) {
+export function applyLosses(losses) {
+  const messages = [];
+
+  for (const [type, amount] of Object.entries(losses)) {
+    if (type === 'health') {
+      dispatch('UPDATE_PLAYER_HEALTH', -amount);
+      messages.push(`Lost ${amount} HP from the encounter!`);
+    } else {
+      dispatch('UPDATE_RESOURCES', { [type]: -amount });
+      messages.push(`Lost ${amount} ${type}!`);
+    }
+  }
+
+  // Morale hit from the failure
+  dispatch('UPDATE_PLAYER_MORALE', -8);
+  messages.push('Morale dropped from the failed scavenge.');
+
+  return messages;
+}
+
+// ========== RESOURCE SHARING ==========
+
+/**
+ * Get shareable resources and party members for transfer UI.
+ */
+export function getShareOptions() {
   const state = getState();
-  const region = getCurrentRegion(state.journey.currentKm);
-  const isUrban = ['vancouver', 'alberta', 'manitoba', 'ontario_south', 'ottawa_approach'].includes(region);
-  const isWinter = state.calendar.season === 'winter';
+  const living = getLivingParty();
 
-  const params = {
-    scout_water: { skill: 'survival', dc: isWinter ? 12 : 8 },
-    forage_food: { skill: 'survival', dc: isWinter ? 13 : 9 },
-    scavenge_supplies: { skill: 'perception', dc: isUrban ? 9 : 12 },
-    medical_run: { skill: 'medical', dc: isUrban ? 10 : 14 },
-    repair_equipment: { skill: 'mechanics', dc: 10 },
-    scout_ahead: { skill: 'perception', dc: 10 },
+  return {
+    resources: { ...state.resources },
+    player: {
+      id: 'masedog',
+      name: 'MASEDOG',
+      health: state.player.health,
+      maxHealth: state.player.maxHealth,
+    },
+    party: living.map(c => ({
+      id: c.id,
+      name: c.name,
+      health: c.health,
+      maxHealth: c.maxHealth,
+      morale: c.morale,
+      status: c.status,
+      infectionState: c.infectionState,
+    })),
   };
+}
 
-  return params[actionId] || null;
+/**
+ * Transfer health (emergency care) from one character to another.
+ * The giver loses HP, the receiver gains it.
+ */
+export function transferHealth(fromId, toId, amount) {
+  const state = getState();
+  const messages = [];
+
+  // Cap at giver's available HP (can't give below 20)
+  const from = fromId === 'masedog' ? state.player : state.party.find(c => c.id === fromId);
+  const maxGive = Math.max(0, from.health - 20);
+  const actualAmount = Math.min(amount, maxGive);
+
+  if (actualAmount <= 0) {
+    return { success: false, messages: [`${from.name} doesn't have enough health to share.`] };
+  }
+
+  if (fromId === 'masedog') {
+    dispatch('UPDATE_PLAYER_HEALTH', -actualAmount);
+  } else {
+    dispatch('UPDATE_CHARACTER', { id: fromId, changes: { health: -actualAmount } });
+  }
+
+  if (toId === 'masedog') {
+    dispatch('UPDATE_PLAYER_HEALTH', actualAmount);
+  } else {
+    dispatch('UPDATE_CHARACTER', { id: toId, changes: { health: actualAmount } });
+  }
+
+  const fromName = from.name;
+  const to = toId === 'masedog' ? state.player : state.party.find(c => c.id === toId);
+  messages.push(`${fromName} shares ${actualAmount} HP with ${to.name}.`);
+  messages.push(`${fromName}: -${actualAmount} HP | ${to.name}: +${actualAmount} HP`);
+
+  // Morale boost from helping
+  dispatch('UPDATE_PLAYER_MORALE', 3);
+  messages.push('The act of helping boosts team morale.');
+
+  return { success: true, messages };
+}
+
+/**
+ * Give medicine to a specific party member.
+ */
+export function useMedicineOn(targetId) {
+  const state = getState();
+  if (state.resources.medicine <= 0) {
+    return { success: false, messages: ['No medicine available!'] };
+  }
+
+  const target = targetId === 'masedog' ? state.player : state.party.find(c => c.id === targetId);
+  if (!target) return { success: false, messages: ['Character not found.'] };
+
+  dispatch('UPDATE_RESOURCES', { medicine: -1 });
+
+  const healAmount = 20;
+  if (targetId === 'masedog') {
+    dispatch('UPDATE_PLAYER_HEALTH', healAmount);
+  } else {
+    dispatch('UPDATE_CHARACTER', { id: targetId, changes: { health: healAmount } });
+  }
+
+  const messages = [`Used medicine on ${target.name}. Healed ${healAmount} HP.`];
+
+  // Clear sick status
+  if (target.status.includes('sick')) {
+    target.status = target.status.filter(s => s !== 'sick');
+    messages.push(`${target.name} is no longer sick.`);
+  }
+
+  return { success: true, messages };
+}
+
+// ========== TRAINING ==========
+
+/**
+ * Train a specific skill. Always succeeds, awards XP.
+ */
+export function trainSkill(skillName) {
+  dispatch('ADD_SKILL_XP', { characterId: 'masedog', skill: skillName, xp: 3 });
+
+  const state = getState();
+  const currentLevel = state.player.skills[skillName] || 0;
+  const currentXP = state.player.skillXP?.[skillName] || 0;
+  const threshold = currentLevel * 3;
+
+  return {
+    messages: [
+      `Practiced ${skillName}. (+3 XP)`,
+      `${skillName}: Level ${currentLevel} — ${currentXP}/${threshold} XP to next level`,
+      'Every bit of training could save your life.',
+    ],
+  };
 }
