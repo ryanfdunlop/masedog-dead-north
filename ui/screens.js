@@ -19,6 +19,7 @@ import {
   useMedicineOn, trainSkill,
 } from '../engine/actions.js';
 import { calculateSuccessChance, calculateVSChance, convertDCtoTarget, getRollCount, rollDice, rollDiceVS } from './dice.js';
+import { getAvailableRecipes, attemptCraft, applyCraftResult, canAfford } from '../engine/crafting.js';
 import { getSettings, updateSetting, loadSettings } from '../engine/settings.js';
 
 let screens = {};
@@ -546,6 +547,11 @@ function renderOtherActions(area, container, campData) {
       <div class="camp-action-name">Use Medicine</div>
       <div class="camp-action-desc">Heal a party member. (${state.resources.medicine} available)</div>
     </button>
+    <button class="camp-action-btn" id="btn-craft">
+      <div class="camp-action-icon">🔨</div>
+      <div class="camp-action-name">Craft Items</div>
+      <div class="camp-action-desc">Combine resources into ammo, fuel, medicine, and more.</div>
+    </button>
     <button class="camp-action-btn" id="btn-just-continue">
       <div class="camp-action-icon">🚶</div>
       <div class="camp-action-name">Continue Journey</div>
@@ -630,8 +636,112 @@ function renderOtherActions(area, container, campData) {
   });
 
   // Just continue
+  // Craft
+  document.getElementById('btn-craft')?.addEventListener('click', () => {
+    renderCraftingUI(container, campData);
+  });
+
   document.getElementById('btn-just-continue')?.addEventListener('click', () => {
     if (campData.onContinue) campData.onContinue();
+  });
+}
+
+function renderCraftingUI(container, campData) {
+  const recipes = getAvailableRecipes();
+  const state = getState();
+  const r = state.resources;
+
+  let html = `
+    <div class="camp-section">
+      <h3>🔨 CRAFTING</h3>
+      <p style="color: var(--text-dim); font-size: 14px; margin-bottom: 8px;">
+        Combine resources to make useful items. Roll dice to see if you succeed!
+      </p>
+      <div class="luck-live-stats">
+        <div class="luck-stats-header">YOUR MATERIALS</div>
+        <div class="luck-stats-grid">
+          <div class="luck-stat">🔧 Scrap: <strong>${r.scrap}</strong></div>
+          <div class="luck-stat">⛽ Fuel: <strong>${r.fuel}</strong></div>
+          <div class="luck-stat">🍖 Food: <strong>${r.food}</strong></div>
+          <div class="luck-stat">💧 Water: <strong>${r.water}</strong></div>
+          <div class="luck-stat">🔫 Ammo: <strong>${r.ammo}</strong></div>
+          <div class="luck-stat">💊 Med: <strong>${r.medicine}</strong></div>
+        </div>
+      </div>
+      <div class="camp-actions-grid">
+  `;
+
+  for (const recipe of recipes) {
+    const costText = Object.entries(recipe.cost).map(([res, amt]) => `${res} ×${amt}`).join(', ');
+    const resultText = Object.entries(recipe.result).map(([res, amt]) => `+${amt} ${res}`).join(', ');
+    const skillLevel = state.player.skills[recipe.skill] || 0;
+    const chance = calculateVSChance(skillLevel, recipe.difficulty);
+
+    html += `
+      <button class="camp-action-btn ${!recipe.affordable ? 'craft-disabled' : ''}"
+              data-recipe="${recipe.id}" ${!recipe.affordable ? 'disabled' : ''}>
+        <div class="camp-action-icon">${recipe.icon}</div>
+        <div class="camp-action-name">${recipe.name}</div>
+        <div class="camp-action-desc">${recipe.description}</div>
+        <div style="font-size: 12px; color: ${recipe.affordable ? 'var(--accent-yellow)' : 'var(--accent-red)'}; margin-top: 4px;">
+          Cost: ${costText}
+        </div>
+        <div style="font-size: 12px; color: var(--accent-green); margin-top: 2px;">
+          Result: ${resultText}
+        </div>
+        <div class="camp-action-chance ${chance >= 55 ? 'high' : chance >= 35 ? 'medium' : 'low'}">
+          ${recipe.skill.toUpperCase()} — ${chance}% success
+        </div>
+        ${recipe.special ? `<div style="font-size: 10px; color: var(--accent-blue); margin-top: 2px;">★ ${recipe.special}</div>` : ''}
+      </button>
+    `;
+  }
+
+  html += `
+      </div>
+      <button class="btn-continue" id="btn-craft-back" style="margin-top: 12px; background: var(--accent-blue);">← BACK</button>
+    </div>
+  `;
+
+  document.getElementById('tab-actions').innerHTML = html;
+
+  // Wire recipe buttons
+  document.querySelectorAll('[data-recipe]').forEach(btn => {
+    if (btn.disabled) return;
+    btn.addEventListener('click', async () => {
+      const recipeId = btn.dataset.recipe;
+      const craftResult = attemptCraft(recipeId);
+      if (!craftResult.success) {
+        showFinalResult(container, craftResult.messages, campData);
+        return;
+      }
+
+      const recipe = craftResult.recipe;
+      const state2 = getState();
+      const skillLevel = state2.player.skills[recipe.skill] || 0;
+
+      // VS DICE — your skill vs crafting difficulty!
+      const vsResult = await rollDiceVS({
+        label: `🔨 CRAFTING: ${recipe.name}`,
+        playerBonus: skillLevel,
+        enemyBonusVal: recipe.difficulty,
+        enemyName: 'DIFFICULTY',
+      });
+
+      const resultMessages = applyCraftResult(recipe, vsResult.success, vsResult.critSuccess);
+      updateHUD();
+
+      showFinalResult(container, [
+        ...craftResult.messages,
+        '',
+        ...resultMessages,
+      ], campData);
+    });
+  });
+
+  // Back button
+  document.getElementById('btn-craft-back')?.addEventListener('click', () => {
+    renderActionsTab(container, campData);
   });
 }
 

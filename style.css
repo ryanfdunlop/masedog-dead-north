@@ -1187,6 +1187,15 @@ body.region-ottawa {
   transform: translateY(-1px);
 }
 
+.camp-action-btn.craft-disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.camp-action-btn.craft-disabled:hover {
+  border-color: #2a2a35;
+  transform: none;
+}
+
 .camp-action-icon {
   font-size: 20px;
   margin-bottom: 4px;
