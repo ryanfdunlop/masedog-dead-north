@@ -47,6 +47,14 @@ import { ZombieEscape } from '../minigames/zombie-escape.js';
 import { Scavenge } from '../minigames/scavenge.js';
 import { Hunting } from '../minigames/hunting.js';
 import { RiverCrossing } from '../minigames/river-crossing.js';
+import { LocationStore } from '../minigames/location-store.js';
+import { LocationPharmacy } from '../minigames/location-pharmacy.js';
+import { LocationHouse } from '../minigames/location-house.js';
+import { LocationApartment } from '../minigames/location-apartment.js';
+import { LocationSubway } from '../minigames/location-subway.js';
+import { LocationTunnel } from '../minigames/location-tunnel.js';
+import { LocationMotel } from '../minigames/location-motel.js';
+import { LocationMall } from '../minigames/location-mall.js';
 import { initDice, rollDice, rollDiceVS, calculateSuccessChance, convertDCtoTarget, getRollCount } from '../ui/dice.js';
 import { initSoundbank, loadSounds, sbZombieGroan, sbHit, sbRiser, sbWhoosh, sbGhostNoise, sbStartDrone, sbStartSoundscape, sbStartDarkBG, sbAlarm, sbStartAction, sbStartSorrow, sbStartExploration, sbStartHope, isLoaded } from './soundbank.js';
 // Actions are handled by ui/screens.js directly now
@@ -612,6 +620,30 @@ function launchMinigame(type, config = {}) {
         break;
       case 'river-crossing':
         game = new RiverCrossing();
+        break;
+      case 'location-store':
+        game = new LocationStore();
+        break;
+      case 'location-pharmacy':
+        game = new LocationPharmacy();
+        break;
+      case 'location-house':
+        game = new LocationHouse();
+        break;
+      case 'location-apartment':
+        game = new LocationApartment();
+        break;
+      case 'location-subway':
+        game = new LocationSubway();
+        break;
+      case 'location-tunnel':
+        game = new LocationTunnel();
+        break;
+      case 'location-motel':
+        game = new LocationMotel();
+        break;
+      case 'location-mall':
+        game = new LocationMall();
         break;
       default:
         resolve({ success: false, score: 0 });

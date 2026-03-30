@@ -214,4 +214,230 @@ export const MINIGAME_EVENTS = [
       ],
     }],
   },
+
+  // ========== NEW LOCATION MINI-GAMES ==========
+
+  {
+    id: 'evt_mg_store',
+    type: 'scavenge',
+    region: null,
+    season: null,
+    turnRange: [1, 52],
+    baseWeight: 12,
+    title: 'Corner Store',
+    segments: [{
+      narration: 'A convenience store. The neon sign flickers — "OPEN 24 HRS." The door is smashed in. Shelves are visible inside, some still stocked. But something moved behind the counter.',
+      choices: [
+        {
+          text: 'Go in and search the store',
+          triggerMinigame: 'location-store',
+          minigameConfig: { difficulty: 'normal' },
+          minigameSuccessEffects: { morale: 5 },
+          minigameFailEffects: { health: -15, morale: -5 },
+          resultText: 'You push through the broken door.',
+        },
+        {
+          text: 'Too risky — keep moving',
+          effects: { morale: -2 },
+          resultText: 'You walk past. The neon sign buzzes behind you.',
+        },
+      ],
+    }],
+  },
+
+  {
+    id: 'evt_mg_pharmacy',
+    type: 'scavenge',
+    region: ['vancouver', 'alberta', 'manitoba', 'ontario_south'],
+    season: null,
+    turnRange: [2, 52],
+    baseWeight: 10,
+    title: 'Pharmacy Run',
+    segments: [{
+      narration: 'A pharmacy — the green cross sign still glows faintly. The front window is intact but the door hangs open. Medicine is worth its weight in gold now. But pharmacies attract the desperate and the dead.',
+      choices: [
+        {
+          text: 'Search the pharmacy for medicine',
+          triggerMinigame: 'location-pharmacy',
+          minigameConfig: { difficulty: 'normal' },
+          minigameSuccessEffects: { morale: 8 },
+          minigameFailEffects: { health: -20, morale: -8 },
+          resultText: 'You step inside. The smell of antiseptic and something worse.',
+        },
+        {
+          text: 'Check just the front shelves quickly',
+          effects: { medicine: 1, morale: -1 },
+          resultText: 'You grab what you can see near the entrance. Bandages and aspirin. Better than nothing.',
+        },
+      ],
+    }],
+  },
+
+  {
+    id: 'evt_mg_house',
+    type: 'scavenge',
+    region: null,
+    season: null,
+    turnRange: [2, 52],
+    baseWeight: 11,
+    title: 'Abandoned House',
+    segments: [{
+      narration: 'A two-story house with a "WELCOME" mat still at the front door. The car in the driveway has its doors open. Inside, curtains sway through a broken window. Someone lived here once. Maybe something useful is still inside.',
+      choices: [
+        {
+          text: 'Search the house room by room',
+          triggerMinigame: 'location-house',
+          minigameConfig: { difficulty: 'normal' },
+          minigameSuccessEffects: { morale: 5 },
+          minigameFailEffects: { health: -10, morale: -5 },
+          resultText: 'The front door creaks open. Inside smells like dust and decay.',
+        },
+        {
+          text: 'Check the car only',
+          effects: { fuel: 1, scrap: 1 },
+          resultText: 'The car has a gas can in the trunk and some tools. Quick and safe.',
+        },
+      ],
+    }],
+  },
+
+  {
+    id: 'evt_mg_apartment',
+    type: 'scavenge',
+    region: ['vancouver', 'alberta', 'manitoba', 'ontario_south', 'ottawa_approach'],
+    season: null,
+    turnRange: [4, 52],
+    baseWeight: 9,
+    title: 'The Apartment Tower',
+    segments: [{
+      narration: 'A 12-story apartment building looms above you. Most windows are dark, but on the upper floors you can see flickering lights. Someone — or something — is up there. The lobby door is propped open with a fire extinguisher. The higher you go, the better the supplies... but the harder to escape.',
+      choices: [
+        {
+          text: 'Enter and climb floor by floor',
+          triggerMinigame: 'location-apartment',
+          minigameConfig: { difficulty: 'normal' },
+          minigameSuccessEffects: { morale: 10, travel: 5 },
+          minigameFailEffects: { health: -20, morale: -10 },
+          resultText: 'You step into the lobby. The elevator is dead. Stairs it is.',
+        },
+        {
+          text: 'Check the lobby only — ground floor is enough',
+          effects: { scrap: 2 },
+          resultText: 'The lobby has a vending machine — smashed. You salvage what you can.',
+        },
+      ],
+    }],
+  },
+
+  {
+    id: 'evt_mg_subway',
+    type: 'scavenge',
+    region: ['vancouver', 'ontario_south', 'ottawa_approach'],
+    season: null,
+    turnRange: [1, 52],
+    baseWeight: 9,
+    title: 'Underground',
+    segments: [{
+      narration: 'A subway entrance. Stairs descend into flickering light. Down there are vending machines, maintenance closets, maybe even a stopped train with supplies in the cars. But the tunnels are dark, and the echoes make it impossible to tell how many are down there.',
+      choices: [
+        {
+          text: 'Descend into the subway',
+          triggerMinigame: 'location-subway',
+          minigameConfig: { difficulty: 'normal' },
+          minigameSuccessEffects: { morale: 8 },
+          minigameFailEffects: { health: -15, morale: -8 },
+          resultText: 'The stairs are slick. The air smells like rust and something rotting.',
+        },
+        {
+          text: 'Stay above ground',
+          effects: { morale: -2 },
+          resultText: 'Underground is a death trap. You keep to the streets.',
+        },
+      ],
+    }],
+  },
+
+  {
+    id: 'evt_mg_tunnel',
+    type: 'scavenge',
+    region: null,
+    season: null,
+    turnRange: [5, 52],
+    baseWeight: 8,
+    title: 'Into the Dark',
+    segments: [{
+      narration: 'A manhole cover, pried open. Someone went down recently — there are fresh scratches on the ladder. The sewers run for miles under the city. Dark, wet, dangerous — but hidden from the hordes above. And sometimes, people stash supplies in places no one wants to look.',
+      choices: [
+        {
+          text: 'Climb down into the sewer tunnel',
+          triggerMinigame: 'location-tunnel',
+          minigameConfig: { difficulty: 'normal' },
+          minigameSuccessEffects: { morale: 5 },
+          minigameFailEffects: { health: -15, morale: -10 },
+          resultText: 'The ladder is cold and wet. Your flashlight barely cuts the darkness.',
+        },
+        {
+          text: 'Not worth the risk',
+          effects: { morale: -3 },
+          resultText: 'Some things are better left buried.',
+        },
+      ],
+    }],
+  },
+
+  {
+    id: 'evt_mg_motel',
+    type: 'scavenge',
+    region: ['bc_interior', 'alberta', 'saskatchewan', 'manitoba', 'ontario_north'],
+    season: null,
+    turnRange: [3, 52],
+    baseWeight: 10,
+    title: 'Roadside Motel',
+    segments: [{
+      narration: 'A motel off the highway. "VACANCY" in neon, half the letters burned out. Six rooms, an office, and what used to be a pool. Cars in the lot suggest people came here looking for shelter. The question is: did they leave?',
+      choices: [
+        {
+          text: 'Search the motel room by room',
+          triggerMinigame: 'location-motel',
+          minigameConfig: { difficulty: 'normal' },
+          minigameSuccessEffects: { morale: 8, health: 5 },
+          minigameFailEffects: { health: -15, morale: -8 },
+          resultText: 'You approach the office. The door is unlocked.',
+        },
+        {
+          text: 'Check the cars in the parking lot',
+          effects: { fuel: 1, scrap: 2 },
+          resultText: 'A couple of gas cans and some tools from the trunks. Not bad.',
+        },
+      ],
+    }],
+  },
+
+  {
+    id: 'evt_mg_mall',
+    type: 'scavenge',
+    region: ['vancouver', 'alberta', 'manitoba', 'ontario_south'],
+    season: null,
+    turnRange: [5, 52],
+    baseWeight: 7,
+    title: 'The Mall',
+    segments: [{
+      narration: 'A shopping mall. The parking lot is a graveyard of abandoned cars. Inside those doors is a goldmine — food court, sports store, pharmacy, electronics. Enough supplies to last weeks. But malls are zombie magnets. The echoes. The open spaces. The darkness. This is high risk, high reward.',
+      choices: [
+        {
+          text: 'Enter the mall — go big or go home',
+          triggerMinigame: 'location-mall',
+          minigameConfig: { difficulty: 'normal' },
+          minigameSuccessEffects: { morale: 15, travel: 10 },
+          minigameFailEffects: { health: -25, morale: -15 },
+          resultText: 'The automatic doors are jammed open. Inside is dark and vast.',
+        },
+        {
+          text: 'Check the parking lot cars only',
+          effects: { fuel: 2, scrap: 2 },
+          resultText: 'You work through the lot, siphoning gas and grabbing tools. Safe but modest.',
+        },
+      ],
+    }],
+  },
 ];
