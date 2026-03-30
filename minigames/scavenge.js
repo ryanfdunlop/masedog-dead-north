@@ -31,6 +31,12 @@ export class Scavenge extends MinigameBase {
     this.zombies = [];
     this.zombieSpawnTimer = 0;
     this.exit = { x: 1, y: 5 }; // Exit door
+
+    // GUN — check if player has ammo
+    this.ammo = this.config?.ammo || 0;
+    this.hasGun = this.ammo > 0;
+    this.shotFlash = 0;
+    this.zombieKills = 0;
     this.searching = false;
     this.searchProgress = 0;
     this.searchTarget = null;
@@ -116,10 +122,41 @@ export class Scavenge extends MinigameBase {
       }
     }
 
-    // Search containers (Space/Enter)
+    // SHOOT — mouse click or E/F key
+    if (this.hasGun && this.ammo > 0 && this.shotFlash <= 0 &&
+        (this.touch.active || this.isKeyPressed('KeyE') || this.isKeyPressed('KeyF'))) {
+      // Kill nearest zombie
+      let nearest = null;
+      let nearestDist = Infinity;
+      for (const z of this.zombies) {
+        const dist = Math.abs(z.x - this.player.x) + Math.abs(z.y - this.player.y);
+        if (dist < nearestDist) { nearestDist = dist; nearest = z; }
+      }
+      if (nearest && nearestDist <= 5) {
+        this.ammo--;
+        this.shotFlash = 0.3;
+        this.noise = Math.min(this.maxNoise, this.noise + 25); // Guns are LOUD
+        this.zombies = this.zombies.filter(z => z !== nearest);
+        this.zombieKills++;
+      }
+    }
+    this.shotFlash -= dt;
+
+    // Auto-search containers when standing on/next to them (no button needed)
+    if (!this.searching) {
+      const container = this.containers.find(c =>
+        !c.searched && Math.abs(c.x - this.player.x) <= 1 && Math.abs(c.y - this.player.y) <= 1
+      );
+      if (container) {
+        this.searching = true;
+        this.searchProgress = 0;
+        this.searchTarget = container;
+      }
+    }
+
+    // ALSO allow Space/Enter to search (legacy)
     if (this.isKeyPressed('Space') || this.isKeyPressed('Enter')) {
       if (!this.searching) {
-        // Find adjacent container
         const container = this.containers.find(c =>
           !c.searched && Math.abs(c.x - this.player.x) <= 1 && Math.abs(c.y - this.player.y) <= 1
         );
@@ -168,23 +205,43 @@ export class Scavenge extends MinigameBase {
       this.zombieSpawnTimer = 0;
     }
 
-    // Zombie movement (simple pathfinding toward player)
+    // Zombie movement — respects walls, uses doors
     for (const z of this.zombies) {
       z.moveTimer -= dt;
       if (z.moveTimer <= 0) {
         const dx = Math.sign(this.player.x - z.x);
         const dy = Math.sign(this.player.y - z.y);
 
-        // Try to move toward player
-        const nx = z.x + dx;
-        const ny = z.y + dy;
-        if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && this.map[ny][nx] !== 1) {
-          z.x = nx;
-          z.y = ny;
-        } else if (this.map[z.y][nx] !== 1) {
-          z.x = nx;
-        } else if (this.map[ny]?.[z.x] !== 1) {
-          z.y = ny;
+        // Check if a tile is walkable (not a wall)
+        const canWalk = (x, y) => {
+          if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return false;
+          return this.map[y][x] !== 1;
+        };
+
+        // Try moves in priority order: toward player, then sideways
+        let moved = false;
+
+        // 1. Try diagonal (both axes toward player)
+        if (dx !== 0 && dy !== 0 && canWalk(z.x + dx, z.y + dy)) {
+          z.x += dx; z.y += dy; moved = true;
+        }
+        // 2. Try horizontal toward player
+        else if (dx !== 0 && canWalk(z.x + dx, z.y)) {
+          z.x += dx; moved = true;
+        }
+        // 3. Try vertical toward player
+        else if (dy !== 0 && canWalk(z.x, z.y + dy)) {
+          z.y += dy; moved = true;
+        }
+        // 4. Wall-slide: try perpendicular directions to find a door
+        else if (!moved) {
+          // Try all 4 directions to find a way around the wall
+          const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
+          for (const [ddx, ddy] of dirs) {
+            if (canWalk(z.x + ddx, z.y + ddy)) {
+              z.x += ddx; z.y += ddy; moved = true; break;
+            }
+          }
         }
 
         z.moveTimer = 0.5 + Math.random() * 0.3;
@@ -204,10 +261,13 @@ export class Scavenge extends MinigameBase {
   }
 
   spawnZombie() {
-    // Spawn at map edges in doorways
+    // Spawn at DOORWAYS only — zombies enter through doors, not walls
     const spawnPoints = [
-      { x: COLS - 2, y: 4 }, { x: COLS - 2, y: 8 },
-      { x: 1, y: 2 }, { x: 1, y: 8 },
+      { x: 1, y: 5 },   // Exit door (left wall)
+      { x: 6, y: 3 },   // Doorway in first internal wall
+      { x: 6, y: 7 },   // Second doorway in first wall
+      { x: 12, y: 4 },  // Doorway in second internal wall
+      { x: 12, y: 8 },  // Second doorway in second wall
     ];
     const sp = spawnPoints[this.randInt(0, spawnPoints.length - 1)];
     this.zombies.push({ x: sp.x, y: sp.y, moveTimer: 0 });
@@ -255,6 +315,12 @@ export class Scavenge extends MinigameBase {
       ctx.fillRect(z.x * TILE + 4, z.y * TILE + 2, TILE - 8, 4);
     }
 
+    // Shot flash overlay
+    if (this.shotFlash > 0) {
+      ctx.fillStyle = `rgba(255, 200, 50, ${this.shotFlash * 0.3})`;
+      ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    }
+
     // Draw player
     ctx.fillStyle = '#44aaff';
     ctx.fillRect(this.player.x * TILE + 2, this.player.y * TILE + 2, TILE - 4, TILE - 4);
@@ -287,7 +353,8 @@ export class Scavenge extends MinigameBase {
 
     // Controls hint
     if (this.timer < 4) {
-      this.drawText(ctx, 'WASD:Move SPACE:Search', 60, GAME_HEIGHT - 4, '#444', 5);
+      const gunHint = this.hasGun ? '  CLICK:Shoot' : '';
+      this.drawText(ctx, `WASD:Move  Walk near boxes to search${gunHint}`, 30, GAME_HEIGHT - 4, '#444', 5);
     }
   }
 }

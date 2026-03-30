@@ -35,6 +35,14 @@ export class ZombieEscape extends MinigameBase {
     this.hits = 0;
     this.maxHits = 3;
 
+    // GUN — check if player has ammo
+    this.ammo = this.config?.ammo || 0;
+    this.hasGun = this.ammo > 0;
+    this.muzzleFlash = 0;
+    this.bullets = []; // Visual bullet tracers
+    this.zombieKills = 0;
+    this.shotCooldown = 0;
+
     // Pre-generate some obstacles
     for (let i = 0; i < 8; i++) {
       this.spawnObstacle(GAME_WIDTH + i * 80 + this.rand(0, 40));
@@ -67,6 +75,24 @@ export class ZombieEscape extends MinigameBase {
       this.player.vy = JUMP_FORCE;
       this.player.grounded = false;
     }
+
+    // SHOOT — LEFT CLICK or E/F key
+    if (this.hasGun && this.ammo > 0 && this.shotCooldown <= 0 &&
+        (this.touch.active || this.isKeyPressed('KeyE') || this.isKeyPressed('KeyF'))) {
+      this.ammo--;
+      this.shotCooldown = 0.4; // Rate limit
+      this.muzzleFlash = 0.15;
+      this.zombieDistance += 30; // Push zombies back!
+      this.zombieKills++;
+      // Bullet tracer visual
+      this.bullets.push({ x: this.player.x + 12, y: GROUND_Y - 10, life: 0.3 });
+    }
+    this.shotCooldown -= dt;
+    this.muzzleFlash -= dt;
+
+    // Update bullets
+    for (const b of this.bullets) { b.x += 300 * dt; b.life -= dt; }
+    this.bullets = this.bullets.filter(b => b.life > 0);
 
     // Slide
     if ((this.isKeyDown('ArrowDown') || this.isKeyDown('KeyS')) && this.player.grounded) {
@@ -127,7 +153,10 @@ export class ZombieEscape extends MinigameBase {
 
     // Win condition: survive the full timer
     if (this.timer >= this.maxTime) {
-      this.complete(true, Math.floor(this.scrollX / 10));
+      this.complete(true, Math.floor(this.scrollX / 10), {
+        ammoUsed: (this.config?.ammo || 0) - this.ammo,
+        zombieKills: this.zombieKills,
+      });
     }
   }
 
@@ -175,6 +204,33 @@ export class ZombieEscape extends MinigameBase {
       ctx.fillRect(Math.round(this.player.x) + 2, Math.round(py) - 6, 8, 8);
     }
 
+    // GUN in player's hand (if has ammo)
+    if (this.hasGun) {
+      const gunX = Math.round(this.player.x) + pw;
+      const gunY = Math.round(py) + 6;
+      ctx.fillStyle = '#555';
+      ctx.fillRect(gunX, gunY, 8, 3);
+      ctx.fillStyle = '#444';
+      ctx.fillRect(gunX + 6, gunY - 1, 3, 5);
+
+      // Muzzle flash
+      if (this.muzzleFlash > 0) {
+        ctx.fillStyle = `rgba(255, 200, 50, ${this.muzzleFlash * 6})`;
+        ctx.fillRect(gunX + 8, gunY - 3, 6, 8);
+        ctx.fillStyle = `rgba(255, 255, 200, ${this.muzzleFlash * 4})`;
+        ctx.fillRect(gunX + 10, gunY - 1, 4, 4);
+      }
+    }
+
+    // Bullet tracers
+    for (const b of this.bullets) {
+      const alpha = b.life * 3;
+      ctx.fillStyle = `rgba(255, 230, 100, ${alpha})`;
+      ctx.fillRect(Math.round(b.x), Math.round(b.y), 12, 2);
+      ctx.fillStyle = `rgba(255, 150, 50, ${alpha * 0.5})`;
+      ctx.fillRect(Math.round(b.x) - 6, Math.round(b.y), 6, 2);
+    }
+
     // Zombie horde behind player
     const zombieX = this.player.x - this.zombieDistance;
     ctx.fillStyle = '#663333';
@@ -197,9 +253,25 @@ export class ZombieEscape extends MinigameBase {
     // Distance
     this.drawText(ctx, `${Math.floor(this.scrollX / 10)}m`, 8, 14, '#aaa', 8);
 
+    // Ammo display
+    if (this.hasGun) {
+      this.drawText(ctx, `AMMO: ${this.ammo}`, 8, 26, this.ammo > 0 ? '#ccaa44' : '#cc3333', 7);
+      // Ammo pips
+      for (let i = 0; i < Math.min(10, this.ammo); i++) {
+        ctx.fillStyle = '#ccaa44';
+        ctx.fillRect(8 + i * 7, 30, 4, 8);
+      }
+    }
+
+    // Zombie kill count
+    if (this.zombieKills > 0) {
+      this.drawText(ctx, `KILLS: ${this.zombieKills}`, GAME_WIDTH - 80, 26, '#aa4444', 7);
+    }
+
     // Controls hint
-    if (this.timer < 3) {
-      this.drawText(ctx, 'UP/W: Jump  DOWN/S: Slide', 60, GAME_HEIGHT - 10, '#555', 6);
+    if (this.timer < 4) {
+      const gunHint = this.hasGun ? '  E/F: Shoot' : '';
+      this.drawText(ctx, `UP/W: Jump  DOWN/S: Slide${gunHint}`, 40, GAME_HEIGHT - 10, '#555', 5);
     }
   }
 }

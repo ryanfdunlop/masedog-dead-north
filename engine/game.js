@@ -627,9 +627,22 @@ function launchMinigame(type, config = {}) {
     if (config.difficulty === 'hard') game.maxTime *= 0.7;
     if (config.difficulty === 'easy') game.maxTime *= 1.3;
 
+    // Pass player's ammo to the mini-game BEFORE init so they can shoot
+    const state = getState();
+    game.config = { ...config, ammo: state.resources.ammo || 0 };
+
     dispatch('SET_PHASE', PHASE.MINIGAME);
-    game.init();
+    game.init(); // init reads game.config.ammo
     game.start();
+
+    // When mini-game completes, deduct ammo used
+    const origResolve = game.onComplete;
+    game.onComplete = (result) => {
+      if (result.ammoUsed && result.ammoUsed > 0) {
+        dispatch('UPDATE_RESOURCES', { ammo: -result.ammoUsed });
+      }
+      origResolve(result);
+    };
   });
 }
 
